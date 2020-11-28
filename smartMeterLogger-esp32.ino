@@ -1,5 +1,6 @@
 //#define SH1106_OLED              /* uncomment to compile for SH1106 instead of SSD1306 */
 
+#include <FFat.h>
 #include <driver/uart.h>
 #include <AsyncTCP.h>              /* https://github.com/me-no-dev/AsyncTCP */
 #include <ESPAsyncWebServer.h>     /* https://github.com/me-no-dev/ESPAsyncWebServer */
@@ -20,6 +21,8 @@ const uint16_t WS_SERVER_PORT =    80;                       /* Enter server por
 #else
 #include <SSD1306.h>               /* In same library as SH1106 */
 #endif
+
+#define  SAVE_TIME_MIN                  (1)              /* data is saved every (currentMinute % SAVE_TIME_MIN) */
 
 /* settings for smartMeter */
 #define RXD_PIN                         (26)
@@ -65,6 +68,23 @@ bool            oledFound{false};
 void setup() {
   Serial.begin(115200);
   Serial.printf("\n\nsmartMeterLogger-esp32\n\nConnecting to %s...\n", WIFI_NETWORK);
+
+  /* check if a ffat partition is defined and halt the system if it is not defined*/
+  if (!esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "ffat")) {
+    Serial.println("FATAL ERROR! No FFat partition defined. System is halted.\nCheck 'Tools>Partition Scheme' in the Arduino IDE and select a partition table with a FFat partition.");
+    while (true) delay(1000); /* system is halted */
+  }
+  /* partition is defined - try to mount it */
+  if (FFat.begin(0, "", 2)) // see: https://github.com/lorol/arduino-esp32fs-plugin#notes-for-fatfs
+    Serial.println("FFat mounted.");
+  /* partition is present, but does not mount so now we just format it */
+  else {
+    Serial.println("Formatting...");
+    if (!FFat.format(true, (char*)"ffat") || !FFat.begin(0, "", 2)) {
+      Serial.println("FFat error while formatting. Halting.");
+      while (true) delay(1000); /* system is halted */;
+    }
+  }
 
   /* check if oled display is present */
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
@@ -133,7 +153,7 @@ void setup() {
   if (USE_WS_BRIDGE) {
     ws_client.onMessage([&](WebsocketsMessage message) {
       ESP_LOGD(TAG, "%s", message.data().c_str());
-      parseAndSend(message.data());
+      process(message.data(), FFat);
     });
 
     const bool connected = ws_client.connect(WS_SERVER_HOST, WS_SERVER_PORT, WS_SERVER_URL);
@@ -149,6 +169,7 @@ void setup() {
     smartMeter.begin(BAUDRATE, SERIAL_8N1, RXD_PIN);
     Serial.printf("Listening on HardwareSerial(%i) with RXD_PIN=%i\n", UART_NR, RXD_PIN);
   }
+  Serial.printf("Saving average use every %i minutes\n", SAVE_TIME_MIN);
 }
 
 void loop() {
@@ -168,7 +189,7 @@ void loop() {
           delay(1);
         while (smartMeter.available())
           telegram.concat((char)smartMeter.read());
-        parseAndSend(telegram);
+        process(telegram, FFat);
         telegram = "";
       }
     }
@@ -211,7 +232,68 @@ void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
   }
 }
 
-void parseAndSend(const String& telegram) {
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels) {
+  Serial.printf("Listing directory: %s\r\n", dirname);
+
+  File root = fs.open(dirname);
+  if (!root) {
+    Serial.println("- failed to open directory");
+    return;
+  }
+  if (!root.isDirectory()) {
+    Serial.println(" - not a directory");
+    return;
+  }
+
+  File file = root.openNextFile();
+  while (file) {
+    if (file.isDirectory()) {
+      Serial.print("  DIR : ");
+      Serial.println(file.name());
+      if (levels) {
+        listDir(fs, file.name(), levels - 1);
+      }
+    } else {
+      Serial.print("  FILE: ");
+      Serial.print(file.name());
+      Serial.print("\tSIZE: ");
+      Serial.println(file.size());
+    }
+    file = root.openNextFile();
+  }
+}
+
+void readFile(fs::FS &fs, const char * path) {
+  Serial.printf("Reading file: %s\r\n", path);
+
+  File file = fs.open(path);
+  if (!file || file.isDirectory()) {
+    Serial.println("- failed to open file for reading");
+    return;
+  }
+
+  Serial.println("- read from file:");
+  while (file.available()) {
+    Serial.write(file.read());
+  }
+  file.close();
+}
+
+void appendLnFile(fs::FS &fs, const char * path, const char * message) {
+  ESP_LOGD(TAG, "Appending to file: %s", path);
+
+  File file = fs.open(path, FILE_APPEND);
+  if (!file) {
+    ESP_LOGE(TAG, "failed to open %s for appending", path);
+    return;
+  }
+  if (!file.println(message))
+    ESP_LOGE(TAG, "failed to write %s", path);
+
+  file.close();
+}
+
+void process(const String& telegram, fs::FS &fs) {
   ws_raw.textAll(telegram);
 
   using decodedFields = ParsedData <
@@ -225,8 +307,8 @@ void parseAndSend(const String& telegram) {
   const ParseResult<void> res = P1Parser::parse(&data, telegram.c_str(), telegram.length());
 
   if (res.err) {
-    ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()));
-    return;
+    ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()).c_str());
+    //return;
   }
 
   if (!data.all_present()) {
@@ -240,18 +322,73 @@ void parseAndSend(const String& telegram) {
     uint32_t gasStart;
   } today;
 
-  /* out of range value so it will be be updated in the next check */
+  /* out of range value used as a flag to indicate that we just booted */
   static uint8_t currentMonthDay{40};
 
-  /* check if we changed day and update starter values if so */
   struct tm timeinfo = {0};
   getLocalTime(&timeinfo);
+
+  /* check if we changed day and update starter values if so */
   if (currentMonthDay != timeinfo.tm_mday) {
     today.t1Start = data.energy_delivered_tariff1.int_val();
     today.t2Start = data.energy_delivered_tariff2.int_val();
     today.gasStart = data.gas_delivered.int_val();
     currentMonthDay = timeinfo.tm_mday;
   }
+
+
+
+
+
+
+
+  /* save the average power consumption every 'SAVE_TIME_MIN' minutes */
+  static uint32_t average{0};
+  static uint32_t numberOfSamples{0};
+
+  if (!(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
+
+    const String path = '/' + String(timeinfo.tm_year + 1900) +
+                        '/' + String(timeinfo.tm_mon + 1) +
+                        '/' + String(timeinfo.tm_mday) + ".log";
+
+    const String message = String(time(NULL)) + " " + String(average / numberOfSamples);
+
+    ESP_LOGD(TAG, "path:'%s' message:'%s'", path.c_str(), message.c_str());
+
+    const String yearname{'/' + String(timeinfo.tm_year + 1900)};
+
+    File folder = fs.open(yearname);
+    if (!folder && !fs.mkdir(yearname))
+      ESP_LOGE(TAG, "could not create %s\n", yearname);
+
+    const String monthname{yearname + "/" + String(timeinfo.tm_mon + 1)};
+
+    folder = fs.open(monthname);
+    if (!folder && !fs.mkdir(monthname))
+      ESP_LOGE(TAG, "could not create %s\n", monthname);
+
+    /* write a start header to the current log file if we just booted */
+    static bool booted{true};
+    if (booted) {
+      const String startHeader = "#" + String(time(NULL));
+      appendLnFile(FFat, path.c_str(), startHeader.c_str());
+      booted = false;
+      ESP_LOGI(TAG, "start header was written to %s", path.c_str());
+    }
+    appendLnFile(FFat, path.c_str(), message.c_str());
+    ESP_LOGI(TAG, "saved '%s' to file %s", message.c_str(), path.c_str());
+
+    average = 0;
+    numberOfSamples = 0;
+  }
+
+
+
+
+
+  average += data.power_delivered.int_val();
+  numberOfSamples++;
 
   snprintf(currentUseString, sizeof(currentUseString), "%i\n%i\n%i\n%i\n%i\n%i\n%i\n%s",
            data.power_delivered.int_val(),
