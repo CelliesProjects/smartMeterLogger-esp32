@@ -63,6 +63,7 @@ SH1106          oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 SSD1306         oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 #endif
 
+time_t          bootTime;
 bool            oledFound{false};
 
 void setup() {
@@ -130,6 +131,8 @@ void setup() {
   while (!getLocalTime(&timeinfo, 0))
     delay(10);
 
+  time(&bootTime);
+
   /* websocket setup */
   ws_raw.onEvent(onEvent);
   server.addHandler(&ws_raw);
@@ -160,9 +163,9 @@ void setup() {
     if (connected) {
       Serial.printf("Connected to websocket bridge 'ws://%s:%i%s'\n", WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
       ws_client.send("Hello Server");
-    } else {
-      Serial.println("Not connected to ws bridge!");
     }
+    else
+      Serial.println("Not connected to ws bridge!");
   }
   else {
     /* start listening on the smartmeter */
@@ -178,7 +181,8 @@ void loop() {
 
   if (USE_WS_BRIDGE && ws_client.available())
     ws_client.poll();
-  else {
+  else
+  {
     static String telegram{""};
     while (smartMeter.available()) {
       const char incomingChar = smartMeter.read();
@@ -194,7 +198,6 @@ void loop() {
       }
     }
   }
-  delay(1);
 }
 
 char currentUseString[200];
@@ -307,18 +310,15 @@ void process(const String& telegram, fs::FS &fs) {
   const ParseResult<void> res = P1Parser::parse(&data, telegram.c_str(), telegram.length());
 
   bool error{false};
+
   if (res.err) {
     ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()).c_str());
     error = true;
-    //return;
   }
-  /* passing errors for now because they all seem to be about a wrong checksum */
-  /* TODO: investigate! */
 
   if (!data.all_present()) {
     ESP_LOGE(TAG, "Could not decode all fields");
     error = true;
-    //return;
   }
 
   static struct {
@@ -328,36 +328,64 @@ void process(const String& telegram, fs::FS &fs) {
   } today;
 
   /* out of range value used as a flag to indicate that we just booted */
-  static uint8_t currentMonthDay{40};
+  static uint8_t  currentMonthDay{40};
+
+  static uint32_t average{0};
+  static uint32_t numberOfSamples{0};
 
   struct tm timeinfo = {0};
   getLocalTime(&timeinfo);
 
-  /* check if we changed day and update starter values if so */
-  if (currentMonthDay != timeinfo.tm_mday) {
-    today.t1Start = data.energy_delivered_tariff1.int_val();
-    today.t2Start = data.energy_delivered_tariff2.int_val();
-    today.gasStart = data.gas_delivered.int_val();
-    currentMonthDay = timeinfo.tm_mday;
+  if (!error) {
+    /* check if we changed day and update starter values if so */
+    if (currentMonthDay != timeinfo.tm_mday) {
+      today.t1Start = data.energy_delivered_tariff1.int_val();
+      today.t2Start = data.energy_delivered_tariff2.int_val();
+      today.gasStart = data.gas_delivered.int_val();
+      currentMonthDay = timeinfo.tm_mday;
+    }
+
+    average += data.power_delivered.int_val();
+    numberOfSamples++;
+
+    snprintf(currentUseString, sizeof(currentUseString), "%i\n%i\n%i\n%i\n%i\n%i\n%i\n%s",
+             data.power_delivered.int_val(),
+             data.energy_delivered_tariff1.int_val(),
+             data.energy_delivered_tariff2.int_val(),
+             data.gas_delivered.int_val(),
+             data.energy_delivered_tariff1.int_val() - today.t1Start,
+             data.energy_delivered_tariff2.int_val() - today.t2Start,
+             data.gas_delivered.int_val() - today.gasStart,
+             (data.electricity_tariff.equals("0001")) ? "laag" : "hoog"
+            );
+
+    ws_current.textAll(currentUseString);
+
+    if (oledFound) {
+      oled.clear();
+      oled.setFont(ArialMT_Plain_16);
+      oled.drawString(oled.width() >> 1, 0, WiFi.localIP().toString());
+      oled.setFont(ArialMT_Plain_24);
+      oled.drawString(oled.width() >> 1, 18, String(data.power_delivered.int_val()) + "W");
+      oled.display();
+    }
   }
 
   /* save the average power consumption to fs every 'SAVE_TIME_MIN' minutes */
-  static uint32_t average{0};
-  static uint32_t numberOfSamples{0};
 
-  if (!(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
+  if (average && numberOfSamples && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
 
     String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
 
     File folder = fs.open(path);
     if (!folder && !fs.mkdir(path))
-      ESP_LOGE(TAG, "could not create folder %s\n", path);
+      ESP_LOGE(TAG, "could not create folder %s", path);
 
     path.concat("/" + String(timeinfo.tm_mon + 1));     /* add the current month to the path */
 
     folder = fs.open(path);
     if (!folder && !fs.mkdir(path))
-      ESP_LOGE(TAG, "could not create folder %s\n", path);
+      ESP_LOGE(TAG, "could not create folder %s", path);
 
     path.concat("/" + String(timeinfo.tm_mday) + ".log");   /* add the filename to the path */
 
@@ -370,40 +398,15 @@ void process(const String& telegram, fs::FS &fs) {
     /* write a start header to the current log file if we just booted */
     static bool booted{true};
     if (booted) {
-      const String startHeader = "#" + String(time(NULL));
+      const String startHeader{"#" + String(bootTime)};
       appendLnFile(FFat, path.c_str(), startHeader.c_str());
       booted = false;
-      ESP_LOGD(TAG, "start header was written to %s", path.c_str());
+      ESP_LOGI(TAG, "start header '%s' was written to '%s'", startHeader.c_str(), path.c_str());
     }
     appendLnFile(FFat, path.c_str(), message.c_str());
-    ESP_LOGI(TAG, "saved '%s' to file %s", message.c_str(), path.c_str());
+    ESP_LOGI(TAG, "saved '%s' to file '%s'", message.c_str(), path.c_str());
 
     average = 0;
     numberOfSamples = 0;
-  }
-
-  average += data.power_delivered.int_val();
-  numberOfSamples++;
-
-  snprintf(currentUseString, sizeof(currentUseString), "%i\n%i\n%i\n%i\n%i\n%i\n%i\n%s",
-           data.power_delivered.int_val(),
-           data.energy_delivered_tariff1.int_val(),
-           data.energy_delivered_tariff2.int_val(),
-           data.gas_delivered.int_val(),
-           data.energy_delivered_tariff1.int_val() - today.t1Start,
-           data.energy_delivered_tariff2.int_val() - today.t2Start,
-           data.gas_delivered.int_val() - today.gasStart,
-           (data.electricity_tariff.equals("0001")) ? "laag" : "hoog"
-          );
-
-  ws_current.textAll(currentUseString);
-
-  if (oledFound) {
-    oled.clear();
-    oled.setFont(ArialMT_Plain_16);
-    oled.drawString(oled.width() >> 1, 0, WiFi.localIP().toString());
-    oled.setFont(ArialMT_Plain_24);
-    oled.drawString(oled.width() >> 1, 18, String(data.power_delivered.int_val()) + "W");
-    oled.display();
   }
 }
