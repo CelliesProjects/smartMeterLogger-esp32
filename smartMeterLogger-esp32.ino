@@ -7,11 +7,11 @@
 #include <ArduinoWebsockets.h>     /* https://github.com/gilmaimon/ArduinoWebsockets */
 #include <dsmr.h>                  /* https://github.com/matthijskooijman/arduino-dsmr */
 
-#define USE_WS_BRIDGE              true                      /* true = use a dsmr websocket server - false = use a dsmr smartmeter */
+#define USE_WS_BRIDGE              true                      /* true = use a dsmr websocket bridge - false = use a dsmr smartmeter */
 
-const char*    WS_SERVER_HOST =    "192.168.0.177";          /* Enter server adress */
-const char*    WS_SERVER_URL =     "/raw";                   /* Enter server url */
-const uint16_t WS_SERVER_PORT =    80;                       /* Enter server port */
+const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* Enter server adress */
+const char*    WS_BRIDGE_URL =     "/raw";                   /* Enter server url */
+const uint16_t WS_BRIDGE_PORT =    80;                       /* Enter server port */
 
 #include "wifisetup.h"
 #include "index_htm.h"
@@ -156,9 +156,9 @@ void setup() {
       process(message.data(), FFat);
     });
 
-    const bool connected = ws_client.connect(WS_SERVER_HOST, WS_SERVER_PORT, WS_SERVER_URL);
+    const bool connected = ws_client.connect(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
     if (connected) {
-      Serial.printf("Connected to websocket server 'ws://%s:%i%s'\n", WS_SERVER_HOST, WS_SERVER_PORT, WS_SERVER_URL);
+      Serial.printf("Connected to websocket bridge 'ws://%s:%i%s'\n", WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
       ws_client.send("Hello Server");
     } else {
       Serial.println("Not connected to ws bridge!");
@@ -306,14 +306,19 @@ void process(const String& telegram, fs::FS &fs) {
   decodedFields data;
   const ParseResult<void> res = P1Parser::parse(&data, telegram.c_str(), telegram.length());
 
+  bool error{false};
   if (res.err) {
     ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()).c_str());
+    error = true;
     //return;
   }
+  /* passing errors for now because they all seem to be about a wrong checksum */
+  /* TODO: investigate! */
 
   if (!data.all_present()) {
     ESP_LOGE(TAG, "Could not decode all fields");
-    return;
+    error = true;
+    //return;
   }
 
   static struct {
@@ -336,37 +341,31 @@ void process(const String& telegram, fs::FS &fs) {
     currentMonthDay = timeinfo.tm_mday;
   }
 
-
-
-
-
-
-
-  /* save the average power consumption every 'SAVE_TIME_MIN' minutes */
+  /* save the average power consumption to fs every 'SAVE_TIME_MIN' minutes */
   static uint32_t average{0};
   static uint32_t numberOfSamples{0};
 
   if (!(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
 
-    const String path = '/' + String(timeinfo.tm_year + 1900) +
-                        '/' + String(timeinfo.tm_mon + 1) +
-                        '/' + String(timeinfo.tm_mday) + ".log";
+    String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
 
-    const String message = String(time(NULL)) + " " + String(average / numberOfSamples);
+    File folder = fs.open(path);
+    if (!folder && !fs.mkdir(path))
+      ESP_LOGE(TAG, "could not create folder %s\n", path);
+
+    path.concat("/" + String(timeinfo.tm_mon + 1));     /* add the current month to the path */
+
+    folder = fs.open(path);
+    if (!folder && !fs.mkdir(path))
+      ESP_LOGE(TAG, "could not create folder %s\n", path);
+
+    path.concat("/" + String(timeinfo.tm_mday) + ".log");   /* add the filename to the path */
+
+    const String message {
+      String(time(NULL)) + " " + String(average / numberOfSamples)
+    };
 
     ESP_LOGD(TAG, "path:'%s' message:'%s'", path.c_str(), message.c_str());
-
-    const String yearname{'/' + String(timeinfo.tm_year + 1900)};
-
-    File folder = fs.open(yearname);
-    if (!folder && !fs.mkdir(yearname))
-      ESP_LOGE(TAG, "could not create %s\n", yearname);
-
-    const String monthname{yearname + "/" + String(timeinfo.tm_mon + 1)};
-
-    folder = fs.open(monthname);
-    if (!folder && !fs.mkdir(monthname))
-      ESP_LOGE(TAG, "could not create %s\n", monthname);
 
     /* write a start header to the current log file if we just booted */
     static bool booted{true};
@@ -374,7 +373,7 @@ void process(const String& telegram, fs::FS &fs) {
       const String startHeader = "#" + String(time(NULL));
       appendLnFile(FFat, path.c_str(), startHeader.c_str());
       booted = false;
-      ESP_LOGI(TAG, "start header was written to %s", path.c_str());
+      ESP_LOGD(TAG, "start header was written to %s", path.c_str());
     }
     appendLnFile(FFat, path.c_str(), message.c_str());
     ESP_LOGI(TAG, "saved '%s' to file %s", message.c_str(), path.c_str());
@@ -382,10 +381,6 @@ void process(const String& telegram, fs::FS &fs) {
     average = 0;
     numberOfSamples = 0;
   }
-
-
-
-
 
   average += data.power_delivered.int_val();
   numberOfSamples++;
