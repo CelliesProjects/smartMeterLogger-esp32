@@ -23,17 +23,17 @@ const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 #include <SSD1306.h>               /* In same library as SH1106 */
 #endif
 
-#define  SAVE_TIME_MIN                  (1)              /* data is saved every (currentMinute % SAVE_TIME_MIN) */
+#define  SAVE_TIME_MIN                 (1)              /* data is saved every(currentMinute % SAVE_TIME_MIN) */
 
 /* settings for smartMeter */
-#define RXD_PIN                         (26)
-#define BAUDRATE                        (115200)
-#define UART_NR                         (UART_NUM_2)
+#define RXD_PIN                        (26)
+#define BAUDRATE                       (115200)
+#define UART_NR                        (UART_NUM_2)
 
 /* settings for a ssd1306/sh1106 oled screen */
-#define OLED_ADDRESS                    (0x3C)
-#define I2C_SDA_PIN                     (21)
-#define I2C_SCL_PIN                     (22)
+#define OLED_ADDRESS                   (0x3C)
+#define I2C_SDA_PIN                    (21)
+#define I2C_SCL_PIN                    (22)
 
 /* settings for ntp time sync */
 const char* NTP_POOL =                  "nl.pool.ntp.org";
@@ -66,6 +66,8 @@ SSD1306         oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 
 time_t          bootTime;
 bool            oledFound{false};
+
+const char * HEADER_MODIFIED_SINCE = "If-Modified-Since";
 
 void setup() {
   Serial.begin(115200);
@@ -128,12 +130,21 @@ void setup() {
   server.addHandler(&ws_current);
 
   /* webserver setup */
-  static const char* HTML_HEADER = "text/html";
+  static char modifiedDate[30];
+  static const char* HTML_MIMETYPE{"text/html"};
+  static const char* HEADER_LASTMODIFIED{"Last-Modified"};
 
-  server.on("/", HTTP_GET, [] (AsyncWebServerRequest * request) {
-    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_HEADER, index_htm, index_htm_len);
+  strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm, index_htm_len);
+    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
     request->send(response);
   });
+
+  server.serveStatic("/", SD, "/");
+
   server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
   });
@@ -160,11 +171,12 @@ void loop() {
   ws_raw.cleanupClients();
   ws_current.cleanupClients();
 
-  if (USE_WS_BRIDGE && ws_bridge.available())
-    ws_bridge.poll();
+  if (USE_WS_BRIDGE) {
+    if (ws_bridge.available())
+      ws_bridge.poll();
+  }
 
-  if (!USE_WS_BRIDGE)
-  {
+  else if (!USE_WS_BRIDGE) {
     static String telegram{""};
     while (smartMeter.available()) {
       const char incomingChar = smartMeter.read();
@@ -180,6 +192,7 @@ void loop() {
       }
     }
   }
+
 }
 
 char currentUseString[200];
@@ -243,7 +256,7 @@ void ws_bridge_onEventsCallback(WebsocketsEvent event, String data) {
 
 bool connectToWebSocketBridge() {
   const bool connected = ws_bridge.connect(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-  ESP_LOGD(TAG, "%s connected to ws bridge", connected ? "succesfully" : "error - not");
+  ESP_LOGI(TAG, "%s connected to ws bridge", connected ? "succesfully" : "error - not");
   return connected;
 }
 
@@ -377,4 +390,8 @@ void process(const String & telegram) {
     average = 0;
     numberOfSamples = 0;
   }
+}
+
+static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest * request, const char * date) {
+  return request->hasHeader(HEADER_MODIFIED_SINCE) && request->header(HEADER_MODIFIED_SINCE).equals(date);
 }
