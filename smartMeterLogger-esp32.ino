@@ -52,7 +52,6 @@ const char*     WS_CURRENT_URL = "/current";
 
 using namespace websockets;
 
-
 WebsocketsClient ws_client;
 AsyncWebServer  server(80);
 AsyncWebSocket  ws_raw(WS_RAW_URL);
@@ -241,7 +240,8 @@ bool appendLnFile(const char * path, const char * message) {
 }
 
 void process(const String & telegram) {
-  ws_raw.textAll(telegram);
+
+  if (ws_raw.count()) ws_raw.textAll(telegram);
 
   using decodedFields = ParsedData <
                         /* FixedValue */ energy_delivered_tariff1,
@@ -253,17 +253,11 @@ void process(const String & telegram) {
   decodedFields data;
   const ParseResult<void> res = P1Parser::parse(&data, telegram.c_str(), telegram.length());
 
-  bool error{false};
-
-  if (res.err) {
+  if (res.err)
     ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()).c_str());
-    error = true;
-  }
 
-  if (!data.all_present()) {
+  if (!data.all_present())
     ESP_LOGE(TAG, "Could not decode all fields");
-    error = true;
-  }
 
   static struct {
     uint32_t t1Start;
@@ -280,7 +274,8 @@ void process(const String & telegram) {
   struct tm timeinfo = {0};
   getLocalTime(&timeinfo);
 
-  if (!error) {
+  if (!res.err && data.all_present()) {
+
     /* check if we changed day and update starter values if so */
     if (currentMonthDay != timeinfo.tm_mday) {
       today.t1Start = data.energy_delivered_tariff1.int_val();
@@ -303,7 +298,7 @@ void process(const String & telegram) {
              (data.electricity_tariff.equals("0001")) ? "laag" : "hoog"
             );
 
-    ws_current.textAll(currentUseString);
+    if (ws_current.count()) ws_current.textAll(currentUseString);
 
     if (oledFound) {
       oled.clear();
@@ -317,7 +312,8 @@ void process(const String & telegram) {
 
   /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
 
-  if (average && numberOfSamples && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
+  if ((numberOfSamples > 1) && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
+  /* numberOfSamples check because there are 2 unsynced clocks - the sm clock and the esp clock - this sometimes will lead to the sm triggering twice per esp measured second*/
 
     String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
 
@@ -333,10 +329,6 @@ void process(const String & telegram) {
 
     path.concat("/" + String(timeinfo.tm_mday) + ".log");   /* add the filename to the path */
 
-    const String message {
-      String(time(NULL)) + " " + String(average / numberOfSamples)
-    };
-
     ESP_LOGD(TAG, "path:'%s' message:'%s'", path.c_str(), message.c_str());
 
     /* write a start header to the current log file if we just booted */
@@ -347,6 +339,11 @@ void process(const String & telegram) {
       booted = false;
       ESP_LOGI(TAG, "start header '%s' was written to '%s'", startHeader.c_str(), path.c_str());
     }
+
+    const String message {
+      String(time(NULL)) + " " + String(average / numberOfSamples)
+    };
+
     appendLnFile(path.c_str(), message.c_str());
     ESP_LOGI(TAG, "saved '%s' to file '%s'", message.c_str(), path.c_str());
 
