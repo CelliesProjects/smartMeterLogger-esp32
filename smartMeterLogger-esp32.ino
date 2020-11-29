@@ -175,8 +175,7 @@ void loop() {
     if (ws_bridge.available())
       ws_bridge.poll();
   }
-
-  else if (!USE_WS_BRIDGE) {
+  else {
     static String telegram{""};
     while (smartMeter.available()) {
       const char incomingChar = smartMeter.read();
@@ -192,7 +191,6 @@ void loop() {
       }
     }
   }
-
 }
 
 char currentUseString[200];
@@ -352,7 +350,7 @@ void process(const String & telegram) {
 
   if ((numberOfSamples > 1) && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
     /* numberOfSamples check because there are 2 unsynced clocks - the sm clock and the esp clock
-       this sometimes will lead to the sm triggering twice in one esp measured second
+       this sometimes will lead to the sm triggering twice in one esp system second
     */
 
     String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
@@ -392,6 +390,6 @@ void process(const String & telegram) {
   }
 }
 
-static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest * request, const char * date) {
+static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest* request, const char* date) {
   return request->hasHeader(HEADER_MODIFIED_SINCE) && request->header(HEADER_MODIFIED_SINCE).equals(date);
 }
