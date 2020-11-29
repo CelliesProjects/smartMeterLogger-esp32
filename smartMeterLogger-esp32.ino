@@ -52,7 +52,7 @@ const char*     WS_CURRENT_URL = "/current";
 
 using namespace websockets;
 
-WebsocketsClient ws_client;
+WebsocketsClient ws_bridge;
 AsyncWebServer  server(80);
 AsyncWebSocket  ws_raw(WS_RAW_URL);
 AsyncWebSocket  ws_current(WS_CURRENT_URL);
@@ -69,17 +69,17 @@ bool            oledFound{false};
 
 void setup() {
   Serial.begin(115200);
-  Serial.printf("\n\nsmartMeterLogger-esp32\n\nConnecting to %s...\n", WIFI_NETWORK);
+  Serial.printf("\n\nsmartMeterLogger-esp32\n\nconnecting to %s...\n", WIFI_NETWORK);
 
   if (!SD.begin())
-    Serial.println("Card Mount Failed");
+    Serial.println("SD card mount failed");
 
   /* check if oled display is present */
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   Wire.beginTransmission(OLED_ADDRESS);
   uint8_t error = Wire.endTransmission();
   if (error)
-    Serial.println("No SSD1306/SH1106 oled found.");
+    Serial.println("no SSD1306/SH1106 oled found.");
   else {
     oledFound = true;
     oled.init();
@@ -100,7 +100,7 @@ void setup() {
 
   while (!WiFi.isConnected())
     delay(10);
-  Serial.printf("Connected to '%s' as %s\n", WIFI_NETWORK, WiFi.localIP().toString().c_str());
+  Serial.printf("connected to '%s' as %s\n", WIFI_NETWORK, WiFi.localIP().toString().c_str());
 
   if (oledFound) {
     oled.clear();
@@ -141,34 +141,29 @@ void setup() {
   server.begin();
 
   if (USE_WS_BRIDGE) {
-    ws_client.onMessage([&](WebsocketsMessage message) {
+    ws_bridge.onEvent(ws_bridge_onEventsCallback);
+    ws_bridge.onMessage([&](WebsocketsMessage message) {
       ESP_LOGD(TAG, "%s", message.data().c_str());
       process(message.data());
     });
-
-    const bool connected = ws_client.connect(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-    if (connected) {
-      Serial.printf("Connected to websocket bridge 'ws://%s:%i%s'\n", WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-      ws_client.send("Hello Server");
-    }
-    else
-      Serial.println("Not connected to ws bridge!");
+    Serial.printf("%s connected to websocket bridge\n", connectToWebSocketBridge() ? "succesfully" : "error - not");
   }
   else {
     /* start listening on the smartmeter */
     smartMeter.begin(BAUDRATE, SERIAL_8N1, RXD_PIN);
-    Serial.printf("Listening on HardwareSerial(%i) with RXD_PIN=%i\n", UART_NR, RXD_PIN);
+    Serial.printf("listening on HardwareSerial(%i) with RXD_PIN=%i\n", UART_NR, RXD_PIN);
   }
-  Serial.printf("Saving average use every %i minutes\n", SAVE_TIME_MIN);
+  Serial.printf("saving average use every %i minutes\n", SAVE_TIME_MIN);
 }
 
 void loop() {
   ws_raw.cleanupClients();
   ws_current.cleanupClients();
 
-  if (USE_WS_BRIDGE && ws_client.available())
-    ws_client.poll();
-  else
+  if (USE_WS_BRIDGE && ws_bridge.available())
+    ws_bridge.poll();
+
+  if (!USE_WS_BRIDGE)
   {
     static String telegram{""};
     while (smartMeter.available()) {
@@ -222,16 +217,46 @@ void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
   }
 }
 
+void ws_bridge_onEventsCallback(WebsocketsEvent event, String data) {
+  switch (event) {
+
+    case WebsocketsEvent::ConnectionOpened :
+      ESP_LOGD(TAG, "Connection Opened");
+      break;
+
+    case WebsocketsEvent::ConnectionClosed :
+      ESP_LOGI(TAG, "websocket bridge down - reconnecting");
+      connectToWebSocketBridge();
+      break;
+
+    case WebsocketsEvent::GotPing :
+      ESP_LOGD(TAG, "Got a Ping!");
+      break;
+
+    case WebsocketsEvent::GotPong :
+      ESP_LOGD(TAG, "Got a Pong!");
+      break;
+
+    default : ESP_LOGE(TAG, "unhandled websocket event");
+  }
+}
+
+bool connectToWebSocketBridge() {
+  const bool connected = ws_bridge.connect(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
+  ESP_LOGD(TAG, "%s connected to ws bridge", connected ? "succesfully" : "error - not");
+  return connected;
+}
+
 bool appendLnFile(const char * path, const char * message) {
   ESP_LOGD(TAG, "Appending to file: %s", path);
 
   File file = SD.open(path, FILE_APPEND);
   if (!file) {
-    ESP_LOGE(TAG, "failed to open %s for appending", path);
+    ESP_LOGD(TAG, "failed to open %s for appending", path);
     return false;
   }
   if (!file.println(message)) {
-    ESP_LOGE(TAG, "failed to write %s", path);
+    ESP_LOGD(TAG, "failed to write %s", path);
     return false;
   }
 
@@ -313,7 +338,9 @@ void process(const String & telegram) {
   /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
 
   if ((numberOfSamples > 1) && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
-  /* numberOfSamples check because there are 2 unsynced clocks - the sm clock and the esp clock - this sometimes will lead to the sm triggering twice per esp measured second*/
+    /* numberOfSamples check because there are 2 unsynced clocks - the sm clock and the esp clock
+       this sometimes will lead to the sm triggering twice in one esp measured second
+    */
 
     String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
 
