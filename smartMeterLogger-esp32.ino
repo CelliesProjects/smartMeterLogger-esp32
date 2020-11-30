@@ -222,10 +222,10 @@ void loop() {
   ws_current.cleanupClients();
 
   /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
-  struct tm timeinfo = {0};
-  getLocalTime(&timeinfo);
-  if ((numberOfSamples > 3) && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec)
-    saveAverage(timeinfo);
+  static struct tm now;
+  getLocalTime(&now);
+  if ((numberOfSamples > 3) && !(now.tm_min % SAVE_TIME_MIN) && (59 == now.tm_sec))
+    saveAverage(now);
 
   if (USE_WS_BRIDGE) {
     ws_bridge.loop();
@@ -334,7 +334,7 @@ bool appendToFile(const char * path, const char * message) {
   return true;
 }
 
-void process(const String & telegram) {
+void process(const String& telegram) {
 
   ws_raw.textAll(telegram);
 
@@ -356,16 +356,17 @@ void process(const String & telegram) {
   */
 
   if (!res.err && data.all_present()) {
+
     static struct {
       uint32_t t1Start;
       uint32_t t2Start;
       uint32_t gasStart;
     } today;
 
-    /* out of range value used as a flag to indicate that we just booted */
-    static uint8_t  currentMonthDay{40};
+    /* out of range value to make sure the next check updates the first time */
+    static uint8_t currentMonthDay{40};
 
-    static struct tm timeinfo = {0};
+    static struct tm timeinfo;
     getLocalTime(&timeinfo);
 
     /* check if we changed day and update starter values if so */
