@@ -69,8 +69,8 @@ bool            oledFound{false};
 
 const char * HEADER_MODIFIED_SINCE = "If-Modified-Since";
 
-void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);
-void ws_bridge_onEvents(WStype_t type, uint8_t * payload, size_t length);
+void ws_server_onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);
+void ws_bridge_onEvent(WStype_t type, uint8_t * payload, size_t length);
 
 static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest* request, const char* date) {
   return request->hasHeader(HEADER_MODIFIED_SINCE) && request->header(HEADER_MODIFIED_SINCE).equals(date);
@@ -79,7 +79,7 @@ static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebS
 void connectToWebSocketBridge() {
   ws_bridge.onEvent(ws_bridge_onEvents);
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-  ws_bridge.enableHeartbeat(1500, 500, 3);
+  ws_bridge.enableHeartbeat(500, 300, 3);
 }
 
 void setup() {
@@ -136,10 +136,10 @@ void setup() {
   time(&bootTime);
 
   /* websocket setup */
-  ws_raw.onEvent(onEvent);
+  ws_raw.onEvent(ws_server_onEvent);
   server.addHandler(&ws_raw);
 
-  ws_current.onEvent(onEvent);
+  ws_current.onEvent(ws_server_onEvent);
   server.addHandler(&ws_current);
 
   /* webserver setup */
@@ -202,7 +202,7 @@ void loop() {
 
 char currentUseString[200];
 
-void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void * arg, uint8_t *data, size_t len) {
+void ws_server_onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void * arg, uint8_t *data, size_t len) {
   switch (type) {
 
     case WS_EVT_CONNECT :
@@ -265,7 +265,7 @@ void ws_bridge_onEvents(WStype_t type, uint8_t * payload, size_t length) {
       ESP_LOGD(TAG, "received pong");
       break;
 
-    default : ESP_LOGE(TAG, "unhandled websocket event");
+    default : ESP_LOGE(TAG, "unhandled websocket bridge event");
   }
 }
 
@@ -299,13 +299,13 @@ void process(const String & telegram) {
                         >;
   decodedFields data;
   const ParseResult<void> res = P1Parser::parse(&data, telegram.c_str(), telegram.length());
-
+/*
   if (res.err)
     ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()).c_str());
 
   if (!data.all_present())
     ESP_LOGE(TAG, "Could not decode all fields");
-
+*/
   static struct {
     uint32_t t1Start;
     uint32_t t2Start;
@@ -359,10 +359,7 @@ void process(const String & telegram) {
 
   /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
 
-  if ((numberOfSamples > 1) && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
-    /* numberOfSamples check because there are 2 unsynced clocks - the sm clock and the esp clock
-       this sometimes will lead to the sm triggering twice in one esp system second
-    */
+  if ((numberOfSamples > 3) && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
 
     String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
 
@@ -394,7 +391,7 @@ void process(const String & telegram) {
     };
 
     appendLnFile(path.c_str(), message.c_str());
-    ESP_LOGI(TAG, "saved '%s' to file '%s'", message.c_str(), path.c_str());
+    ESP_LOGI(TAG, "%i samples - saved '%s' to file '%s'", numberOfSamples, message.c_str(), path.c_str());
 
     average = 0;
     numberOfSamples = 0;
