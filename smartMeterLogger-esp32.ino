@@ -67,10 +67,10 @@ SSD1306         oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 time_t          bootTime;
 bool            oledFound{false};
 
-const char * HEADER_MODIFIED_SINCE = "If-Modified-Since";
-
 void ws_server_onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);
 void ws_bridge_onEvent(WStype_t type, uint8_t * payload, size_t length);
+
+const char * HEADER_MODIFIED_SINCE = "If-Modified-Since";
 
 static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest* request, const char* date) {
   return request->hasHeader(HEADER_MODIFIED_SINCE) && request->header(HEADER_MODIFIED_SINCE).equals(date);
@@ -79,7 +79,7 @@ static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebS
 void connectToWebSocketBridge() {
   ws_bridge.onEvent(ws_bridge_onEvents);
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-  ws_bridge.enableHeartbeat(500, 300, 3);
+  ws_bridge.enableHeartbeat(500, 300, 4);
 }
 
 void setup() {
@@ -172,12 +172,60 @@ void setup() {
     smartMeter.begin(BAUDRATE, SERIAL_8N1, RXD_PIN);
     Serial.printf("listening on HardwareSerial(%i) with RXD_PIN=%i\n", UART_NR, RXD_PIN);
   }
+
   Serial.printf("saving average use every %i minutes\n", SAVE_TIME_MIN);
+}
+
+static uint32_t average{0};
+static uint32_t numberOfSamples{0};
+
+void saveAverage(const tm& timeinfo) {
+  String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
+
+  File folder = SD.open(path);
+  if (!folder && !SD.mkdir(path))
+    ESP_LOGE(TAG, "could not create folder %s", path);
+
+  path.concat("/" + String(timeinfo.tm_mon + 1));     /* add the current month to the path */
+
+  folder = SD.open(path);
+  if (!folder && !SD.mkdir(path))
+    ESP_LOGE(TAG, "could not create folder %s", path);
+
+  path.concat("/" + String(timeinfo.tm_mday) + ".log");   /* add the filename to the path */
+
+  /* write a start header to the current log file if we just booted */
+  static bool booted{true};
+  if (booted) {
+    const String startHeader{"#" + String(bootTime)};
+
+    ESP_LOGI(TAG, "writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
+
+    appendToFile(path.c_str(), startHeader.c_str());
+    booted = false;
+  }
+
+  const String message {
+    String(time(NULL)) + " " + String(average / numberOfSamples)
+  };
+
+  ESP_LOGI(TAG, "%i samples - saving '%s' to file '%s'", numberOfSamples, message.c_str(), path.c_str());
+
+  appendToFile(path.c_str(), message.c_str());
+
+  average = 0;
+  numberOfSamples = 0;
 }
 
 void loop() {
   ws_raw.cleanupClients();
   ws_current.cleanupClients();
+
+  /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
+  struct tm timeinfo = {0};
+  getLocalTime(&timeinfo);
+  if ((numberOfSamples > 3) && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec)
+    saveAverage(timeinfo);
 
   if (USE_WS_BRIDGE) {
     ws_bridge.loop();
@@ -269,8 +317,8 @@ void ws_bridge_onEvents(WStype_t type, uint8_t * payload, size_t length) {
   }
 }
 
-bool appendLnFile(const char * path, const char * message) {
-  ESP_LOGD(TAG, "Appending to file: %s", path);
+bool appendToFile(const char * path, const char * message) {
+  ESP_LOGD(TAG, "appending to file: %s", path);
 
   File file = SD.open(path, FILE_APPEND);
   if (!file) {
@@ -288,7 +336,7 @@ bool appendLnFile(const char * path, const char * message) {
 
 void process(const String & telegram) {
 
-  if (ws_raw.count()) ws_raw.textAll(telegram);
+  ws_raw.textAll(telegram);
 
   using decodedFields = ParsedData <
                         /* FixedValue */ energy_delivered_tariff1,
@@ -299,29 +347,26 @@ void process(const String & telegram) {
                         >;
   decodedFields data;
   const ParseResult<void> res = P1Parser::parse(&data, telegram.c_str(), telegram.length());
-/*
-  if (res.err)
-    ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()).c_str());
+  /*
+    if (res.err)
+      ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()).c_str());
 
-  if (!data.all_present())
-    ESP_LOGE(TAG, "Could not decode all fields");
-*/
-  static struct {
-    uint32_t t1Start;
-    uint32_t t2Start;
-    uint32_t gasStart;
-  } today;
-
-  /* out of range value used as a flag to indicate that we just booted */
-  static uint8_t  currentMonthDay{40};
-
-  static uint32_t average{0};
-  static uint32_t numberOfSamples{0};
-
-  struct tm timeinfo = {0};
-  getLocalTime(&timeinfo);
+    if (!data.all_present())
+      ESP_LOGE(TAG, "Could not decode all fields");
+  */
 
   if (!res.err && data.all_present()) {
+    static struct {
+      uint32_t t1Start;
+      uint32_t t2Start;
+      uint32_t gasStart;
+    } today;
+
+    /* out of range value used as a flag to indicate that we just booted */
+    static uint8_t  currentMonthDay{40};
+
+    static struct tm timeinfo = {0};
+    getLocalTime(&timeinfo);
 
     /* check if we changed day and update starter values if so */
     if (currentMonthDay != timeinfo.tm_mday) {
@@ -345,7 +390,7 @@ void process(const String & telegram) {
              (data.electricity_tariff.equals("0001")) ? "laag" : "hoog"
             );
 
-    if (ws_current.count()) ws_current.textAll(currentUseString);
+    ws_current.textAll(currentUseString);
 
     if (oledFound) {
       oled.clear();
@@ -355,45 +400,5 @@ void process(const String & telegram) {
       oled.drawString(oled.width() >> 1, 18, String(data.power_delivered.int_val()) + "W");
       oled.display();
     }
-  }
-
-  /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
-
-  if ((numberOfSamples > 3) && !(timeinfo.tm_min % SAVE_TIME_MIN) && !timeinfo.tm_sec) {
-
-    String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
-
-    File folder = SD.open(path);
-    if (!folder && !SD.mkdir(path))
-      ESP_LOGE(TAG, "could not create folder %s", path);
-
-    path.concat("/" + String(timeinfo.tm_mon + 1));     /* add the current month to the path */
-
-    folder = SD.open(path);
-    if (!folder && !SD.mkdir(path))
-      ESP_LOGE(TAG, "could not create folder %s", path);
-
-    path.concat("/" + String(timeinfo.tm_mday) + ".log");   /* add the filename to the path */
-
-    ESP_LOGD(TAG, "path:'%s' message:'%s'", path.c_str(), message.c_str());
-
-    /* write a start header to the current log file if we just booted */
-    static bool booted{true};
-    if (booted) {
-      const String startHeader{"#" + String(bootTime)};
-      appendLnFile(path.c_str(), startHeader.c_str());
-      booted = false;
-      ESP_LOGI(TAG, "start header '%s' was written to '%s'", startHeader.c_str(), path.c_str());
-    }
-
-    const String message {
-      String(time(NULL)) + " " + String(average / numberOfSamples)
-    };
-
-    appendLnFile(path.c_str(), message.c_str());
-    ESP_LOGI(TAG, "%i samples - saved '%s' to file '%s'", numberOfSamples, message.c_str(), path.c_str());
-
-    average = 0;
-    numberOfSamples = 0;
   }
 }
