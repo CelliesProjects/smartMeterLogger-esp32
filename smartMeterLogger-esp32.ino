@@ -67,15 +67,11 @@ SSD1306         oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 time_t          bootTime;
 bool            oledFound{false};
 
-void ws_server_onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);
-void ws_bridge_onEvent(WStype_t type, uint8_t * payload, size_t length);
-
-const char * HEADER_MODIFIED_SINCE = "If-Modified-Since";
+const char* HEADER_MODIFIED_SINCE = "If-Modified-Since";
 
 static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest* request, const char* date) {
   return request->hasHeader(HEADER_MODIFIED_SINCE) && request->header(HEADER_MODIFIED_SINCE).equals(date);
 }
-
 void connectToWebSocketBridge() {
   ws_bridge.onEvent(ws_bridge_onEvents);
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
@@ -224,7 +220,7 @@ void loop() {
   /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
   static struct tm now;
   getLocalTime(&now);
-  if ((numberOfSamples > 3) && !(now.tm_min % SAVE_TIME_MIN) && (59 == now.tm_sec))
+  if ((numberOfSamples > 1) && !(now.tm_min % SAVE_TIME_MIN) && (59 == now.tm_sec))
     saveAverage(now);
 
   if (USE_WS_BRIDGE) {
@@ -246,6 +242,7 @@ void loop() {
       }
     }
   }
+  delay(1);
 }
 
 char currentUseString[200];
@@ -254,13 +251,13 @@ void ws_server_onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, Aws
   switch (type) {
 
     case WS_EVT_CONNECT :
-      ESP_LOGI(TAG, "[%s][%u] connect", server->url(), client->id());
+      ESP_LOGD(TAG, "[%s][%u] connect", server->url(), client->id());
       if (0 == strcmp(WS_CURRENT_URL, server->url()))
         client->text(currentUseString);
       break;
 
     case WS_EVT_DISCONNECT :
-      ESP_LOGI(TAG, "[%s][%u] disconnect", server->url(), client->id());
+      ESP_LOGD(TAG, "[%s][%u] disconnect", server->url(), client->id());
       break;
 
     case WS_EVT_ERROR :
