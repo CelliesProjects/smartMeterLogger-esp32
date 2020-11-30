@@ -5,8 +5,10 @@
 #include <driver/uart.h>
 #include <AsyncTCP.h>              /* https://github.com/me-no-dev/AsyncTCP */
 #include <ESPAsyncWebServer.h>     /* https://github.com/me-no-dev/ESPAsyncWebServer */
-#include <ArduinoWebsockets.h>     /* https://github.com/gilmaimon/ArduinoWebsockets */
+#include <WebSocketsClient.h>      /* https://github.com/Links2004/arduinoWebSockets */
 #include <dsmr.h>                  /* https://github.com/matthijskooijman/arduino-dsmr */
+
+
 
 #define USE_WS_BRIDGE              true                      /* true = use a dsmr websocket bridge - false = use a dsmr smartmeter */
 
@@ -50,9 +52,7 @@ const IPAddress SECONDARY_DNS(192, 168, 0, 50);          /* Check in your router
 const char*     WS_RAW_URL = "/raw";
 const char*     WS_CURRENT_URL = "/current";
 
-using namespace websockets;
-
-WebsocketsClient ws_bridge;
+WebSocketsClient ws_bridge;
 AsyncWebServer  server(80);
 AsyncWebSocket  ws_raw(WS_RAW_URL);
 AsyncWebSocket  ws_current(WS_CURRENT_URL);
@@ -68,6 +68,19 @@ time_t          bootTime;
 bool            oledFound{false};
 
 const char * HEADER_MODIFIED_SINCE = "If-Modified-Since";
+
+void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);
+void ws_bridge_onEvents(WStype_t type, uint8_t * payload, size_t length);
+
+static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest* request, const char* date) {
+  return request->hasHeader(HEADER_MODIFIED_SINCE) && request->header(HEADER_MODIFIED_SINCE).equals(date);
+}
+
+void connectToWebSocketBridge() {
+  ws_bridge.onEvent(ws_bridge_onEvents);
+  ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
+  ws_bridge.enableHeartbeat(1500, 500, 3);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -151,14 +164,9 @@ void setup() {
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
   server.begin();
 
-  if (USE_WS_BRIDGE) {
-    ws_bridge.onEvent(ws_bridge_onEventsCallback);
-    ws_bridge.onMessage([&](WebsocketsMessage message) {
-      ESP_LOGD(TAG, "%s", message.data().c_str());
-      process(message.data());
-    });
-    Serial.printf("%s connected to websocket bridge\n", connectToWebSocketBridge() ? "succesfully" : "error - not");
-  }
+  if (USE_WS_BRIDGE)
+    /* start listening on the websocket bridge */
+    connectToWebSocketBridge();
   else {
     /* start listening on the smartmeter */
     smartMeter.begin(BAUDRATE, SERIAL_8N1, RXD_PIN);
@@ -172,8 +180,7 @@ void loop() {
   ws_current.cleanupClients();
 
   if (USE_WS_BRIDGE) {
-    if (ws_bridge.available())
-      ws_bridge.poll();
+    ws_bridge.loop();
   }
   else {
     static String telegram{""};
@@ -195,7 +202,7 @@ void loop() {
 
 char currentUseString[200];
 
-void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len) {
+void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void * arg, uint8_t *data, size_t len) {
   switch (type) {
 
     case WS_EVT_CONNECT :
@@ -228,34 +235,38 @@ void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
   }
 }
 
-void ws_bridge_onEventsCallback(WebsocketsEvent event, String data) {
-  switch (event) {
+void ws_bridge_onEvents(WStype_t type, uint8_t * payload, size_t length) {
+  switch (type) {
 
-    case WebsocketsEvent::ConnectionOpened :
-      ESP_LOGD(TAG, "Connection Opened");
+    case WStype_CONNECTED :
+      Serial.printf("connected to ws://%s:%i%s\n", WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
       break;
 
-    case WebsocketsEvent::ConnectionClosed :
-      ESP_LOGI(TAG, "websocket bridge down - reconnecting");
+    case WStype_DISCONNECTED :
+      Serial.println("websocket bridge down - reconnecting");
       connectToWebSocketBridge();
       break;
 
-    case WebsocketsEvent::GotPing :
-      ESP_LOGD(TAG, "Got a Ping!");
+    case WStype_TEXT :
+      ESP_LOGD(TAG, "payload: %s", payload);
+      payload[length] = 0;
+      process(reinterpret_cast<char*>(payload));
       break;
 
-    case WebsocketsEvent::GotPong :
-      ESP_LOGD(TAG, "Got a Pong!");
+    case WStype_ERROR :
+      ESP_LOGE(TAG, "websocket bridge error");
+      break;
+
+    case WStype_PING :
+      ESP_LOGD(TAG, "received ping");
+      break;
+
+    case WStype_PONG :
+      ESP_LOGD(TAG, "received pong");
       break;
 
     default : ESP_LOGE(TAG, "unhandled websocket event");
   }
-}
-
-bool connectToWebSocketBridge() {
-  const bool connected = ws_bridge.connect(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-  ESP_LOGI(TAG, "%s connected to ws bridge", connected ? "succesfully" : "error - not");
-  return connected;
 }
 
 bool appendLnFile(const char * path, const char * message) {
@@ -388,8 +399,4 @@ void process(const String & telegram) {
     average = 0;
     numberOfSamples = 0;
   }
-}
-
-static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest* request, const char* date) {
-  return request->hasHeader(HEADER_MODIFIED_SINCE) && request->header(HEADER_MODIFIED_SINCE).equals(date);
 }
