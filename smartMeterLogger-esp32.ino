@@ -74,7 +74,7 @@ static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebS
 void connectToWebSocketBridge() {
   ws_bridge.onEvent(ws_bridge_onEvents);
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-  //ws_bridge.enableHeartbeat(1500, 300, 4);
+  //ws_bridge.enableHeartbeat(500, 300, 4);
 }
 
 void setup() {
@@ -165,7 +165,7 @@ void setup() {
   else {
     /* start listening on the smartmeter */
     smartMeter.begin(BAUDRATE, SERIAL_8N1, RXD_PIN);
-    Serial.printf("listening on HardwareSerial(%i) with RXD_PIN=%i\n", UART_NR, RXD_PIN);
+    Serial.printf("listening for smartMeter RXD_PIN = %i baudrate = %i\n", RXD_PIN, BAUDRATE);
   }
 
   Serial.printf("saving average use every %i minutes\n", SAVE_TIME_MIN);
@@ -194,7 +194,7 @@ void saveAverage(const tm& timeinfo) {
   if (booted) {
     const String startHeader{"#" + String(bootTime)};
 
-    ESP_LOGI(TAG, "writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
+    ESP_LOGD(TAG, "writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
 
     appendToFile(path.c_str(), startHeader.c_str());
     booted = false;
@@ -246,7 +246,7 @@ void loop() {
 
 char currentUseString[200];
 
-void ws_server_onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void * arg, uint8_t *data, size_t len) {
+void ws_server_onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len) {
   switch (type) {
 
     case WS_EVT_CONNECT :
@@ -279,11 +279,11 @@ void ws_server_onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, Aws
   }
 }
 
-void ws_bridge_onEvents(WStype_t type, uint8_t * payload, size_t length) {
+void ws_bridge_onEvents(WStype_t type, uint8_t* payload, size_t length) {
   switch (type) {
 
     case WStype_CONNECTED :
-      Serial.printf("connected to ws://%s:%i%s\n", WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
+      Serial.printf("connected to websocket bridge 'ws://%s:%i%s'\n", WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
       break;
 
     case WStype_DISCONNECTED :
@@ -313,7 +313,7 @@ void ws_bridge_onEvents(WStype_t type, uint8_t * payload, size_t length) {
   }
 }
 
-bool appendToFile(const char * path, const char * message) {
+bool appendToFile(const char* path, const char* message) {
   ESP_LOGD(TAG, "appending to file: %s", path);
 
   File file = SD.open(path, FILE_APPEND);
@@ -350,52 +350,51 @@ void process(const String& telegram) {
     if (!data.all_present())
       ESP_LOGE(TAG, "Could not decode all fields");
   */
+  if (res.err || !data.all_present())
+    return;
 
-  if (!res.err && data.all_present()) {
+  static struct {
+    uint32_t t1Start;
+    uint32_t t2Start;
+    uint32_t gasStart;
+  } today;
 
-    static struct {
-      uint32_t t1Start;
-      uint32_t t2Start;
-      uint32_t gasStart;
-    } today;
+  /* out of range value to make sure the next check updates the first time */
+  static uint8_t currentMonthDay{40};
 
-    /* out of range value to make sure the next check updates the first time */
-    static uint8_t currentMonthDay{40};
+  static struct tm timeinfo;
+  getLocalTime(&timeinfo);
 
-    static struct tm timeinfo;
-    getLocalTime(&timeinfo);
+  /* check if we changed day and update starter values if so */
+  if (currentMonthDay != timeinfo.tm_mday) {
+    today.t1Start = data.energy_delivered_tariff1.int_val();
+    today.t2Start = data.energy_delivered_tariff2.int_val();
+    today.gasStart = data.gas_delivered.int_val();
+    currentMonthDay = timeinfo.tm_mday;
+  }
 
-    /* check if we changed day and update starter values if so */
-    if (currentMonthDay != timeinfo.tm_mday) {
-      today.t1Start = data.energy_delivered_tariff1.int_val();
-      today.t2Start = data.energy_delivered_tariff2.int_val();
-      today.gasStart = data.gas_delivered.int_val();
-      currentMonthDay = timeinfo.tm_mday;
-    }
+  average += data.power_delivered.int_val();
+  numberOfSamples++;
 
-    average += data.power_delivered.int_val();
-    numberOfSamples++;
+  snprintf(currentUseString, sizeof(currentUseString), "%i\n%i\n%i\n%i\n%i\n%i\n%i\n%s",
+           data.power_delivered.int_val(),
+           data.energy_delivered_tariff1.int_val(),
+           data.energy_delivered_tariff2.int_val(),
+           data.gas_delivered.int_val(),
+           data.energy_delivered_tariff1.int_val() - today.t1Start,
+           data.energy_delivered_tariff2.int_val() - today.t2Start,
+           data.gas_delivered.int_val() - today.gasStart,
+           (data.electricity_tariff.equals("0001")) ? "laag" : "hoog"
+          );
 
-    snprintf(currentUseString, sizeof(currentUseString), "%i\n%i\n%i\n%i\n%i\n%i\n%i\n%s",
-             data.power_delivered.int_val(),
-             data.energy_delivered_tariff1.int_val(),
-             data.energy_delivered_tariff2.int_val(),
-             data.gas_delivered.int_val(),
-             data.energy_delivered_tariff1.int_val() - today.t1Start,
-             data.energy_delivered_tariff2.int_val() - today.t2Start,
-             data.gas_delivered.int_val() - today.gasStart,
-             (data.electricity_tariff.equals("0001")) ? "laag" : "hoog"
-            );
+  ws_current.textAll(currentUseString);
 
-    ws_current.textAll(currentUseString);
-
-    if (oledFound) {
-      oled.clear();
-      oled.setFont(ArialMT_Plain_16);
-      oled.drawString(oled.width() >> 1, 0, WiFi.localIP().toString());
-      oled.setFont(ArialMT_Plain_24);
-      oled.drawString(oled.width() >> 1, 18, String(data.power_delivered.int_val()) + "W");
-      oled.display();
-    }
+  if (oledFound) {
+    oled.clear();
+    oled.setFont(ArialMT_Plain_16);
+    oled.drawString(oled.width() >> 1, 0, WiFi.localIP().toString());
+    oled.setFont(ArialMT_Plain_24);
+    oled.drawString(oled.width() >> 1, 18, String(data.power_delivered.int_val()) + "W");
+    oled.display();
   }
 }
