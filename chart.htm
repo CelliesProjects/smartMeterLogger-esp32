@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>
+const debugip="192.168.0.177";  //change this to the esp32 ip for remote running of this page
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="minimal-ui,width=device-width,initial-scale=1.0,user-scalable=no" />
+<link rel="icon" href="data:;base64,iVBORw0KGgo="><!--prevent favicon requests-->
+<link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+<title>smartMeterLogger Overzicht gebruik</title>
+<meta name="description" content="smartMeterLogger-esp32">
+<meta name="author" content="Cellie">
+<script>!function(a,b){"function"==typeof define&&define.amd?define([],b):"undefined"!=typeof module&&module.exports?module.exports=b():a.ReconnectingWebSocket=b()}(this,function(){function a(b,c,d){function l(a,b){var c=document.createEvent("CustomEvent");return c.initCustomEvent(a,!1,!1,b),c}var e={debug:!1,automaticOpen:!0,reconnectInterval:1e3,maxReconnectInterval:3e4,reconnectDecay:1.5,timeoutInterval:2e3};d||(d={});for(var f in e)this[f]="undefined"!=typeof d[f]?d[f]:e[f];this.url=b,this.reconnectAttempts=0,this.readyState=WebSocket.CONNECTING,this.protocol=null;var h,g=this,i=!1,j=!1,k=document.createElement("div");k.addEventListener("open",function(a){g.onopen(a)}),k.addEventListener("close",function(a){g.onclose(a)}),k.addEventListener("connecting",function(a){g.onconnecting(a)}),k.addEventListener("message",function(a){g.onmessage(a)}),k.addEventListener("error",function(a){g.onerror(a)}),this.addEventListener=k.addEventListener.bind(k),this.removeEventListener=k.removeEventListener.bind(k),this.dispatchEvent=k.dispatchEvent.bind(k),this.open=function(b){h=new WebSocket(g.url,c||[]),b||k.dispatchEvent(l("connecting")),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","attempt-connect",g.url);var d=h,e=setTimeout(function(){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","connection-timeout",g.url),j=!0,d.close(),j=!1},g.timeoutInterval);h.onopen=function(){clearTimeout(e),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onopen",g.url),g.protocol=h.protocol,g.readyState=WebSocket.OPEN,g.reconnectAttempts=0;var d=l("open");d.isReconnect=b,b=!1,k.dispatchEvent(d)},h.onclose=function(c){if(clearTimeout(e),h=null,i)g.readyState=WebSocket.CLOSED,k.dispatchEvent(l("close"));else{g.readyState=WebSocket.CONNECTING;var d=l("connecting");d.code=c.code,d.reason=c.reason,d.wasClean=c.wasClean,k.dispatchEvent(d),b||j||((g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onclose",g.url),k.dispatchEvent(l("close")));var e=g.reconnectInterval*Math.pow(g.reconnectDecay,g.reconnectAttempts);setTimeout(function(){g.reconnectAttempts++,g.open(!0)},e>g.maxReconnectInterval?g.maxReconnectInterval:e)}},h.onmessage=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onmessage",g.url,b.data);var c=l("message");c.data=b.data,k.dispatchEvent(c)},h.onerror=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onerror",g.url,b),k.dispatchEvent(l("error"))}},1==this.automaticOpen&&this.open(!1),this.send=function(b){if(h)return(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","send",g.url,b),h.send(b);throw"INVALID_STATE_ERR : Pausing to reconnect websocket"},this.close=function(a,b){"undefined"==typeof a&&(a=1e3),i=!0,h&&h.close(a,b)},this.refresh=function(){h&&h.close()}}return a.prototype.onopen=function(){},a.prototype.onclose=function(){},a.prototype.onconnecting=function(){},a.prototype.onmessage=function(){},a.prototype.onerror=function(){},a.debugAll=!1,a.CONNECTING=WebSocket.CONNECTING,a.OPEN=WebSocket.OPEN,a.CLOSING=WebSocket.CLOSING,a.CLOSED=WebSocket.CLOSED,a});</script>
+<style>
+*{box-sizing:border-box;}
+html,body{
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+  margin:0;
+  padding:0;
+  background:black;
+  color:#f1f1f1;
+  text-align:center;
+  font-family:'Roboto',sans-serif;
+  overflow:hidden;
+}
+.noselect{
+  -webkit-touch-callout:none; /* iOS Safari */
+    -webkit-user-select:none; /* Safari */
+     -khtml-user-select:none; /* Konqueror HTML */
+       -moz-user-select:none; /* Firefox */
+        -ms-user-select:none; /* Internet Explorer/Edge */
+            user-select:none; /* Non-prefixed version,currently
+                                  supported by Chrome and Opera */
+}
+#graphContainer{
+  width:100%;
+  height:100%;
+}
+#myChart{
+  width:100%;
+  height:100%;
+}
+</style>
+</head>
+<body class="noselect">
+<div id="graphContainer"><canvas id="myChart" width="1440" height="1000"></canvas></div>
+<script>
+var url="http://";
+if (window.location.hostname)url+=window.location.hostname;
+else url+=debugip;
+var ws_host="ws://";
+if(window.location.hostname)ws_host+=window.location.hostname+"/current";
+else ws_host+=debugip+"/current";
+
+const canvasheight=1000;
+const maxrange=2000;//in w
+var canvas = document.getElementById('myChart');
+const ctx = canvas.getContext('2d');
+
+$(document).ready(function(){
+  includeHTML("http://192.168.0.107/2020/11/29.log", includeHTML_callBack);
+})
+
+function map(x,in_min,in_max,out_min,out_max){
+  return (x-in_min)*(out_max-out_min)/(in_max-in_min)+out_min;
+}
+//https://stackoverflow.com/questions/9958282/how-do-i-load-html-into-a-variable-with-jquery/40113641#40113641
+
+function includeHTML_callBack(result){
+  var data = result.split('\n');
+  //split the result in time and usage
+  //find the biggest value
+  var top=0;
+  data.forEach(function(item,index){
+    const itemdata=item.split(' ');
+    if(itemdata[1]>top)top=itemdata[1];
+  });  
+  
+  //draw a nice background
+  ctx.beginPath();
+  ctx.strokeStyle='blue';
+  const step=maxrange/10;
+  for(vgrid=maxrange;vgrid>0;vgrid-=step){
+    console.log(vgrid);
+    ctx.moveTo(0,vgrid);
+    ctx.lineTo(1440,vgrid);
+    ctx.stroke();
+  }
+  ctx.beginPath();  
+  ctx.strokeStyle='green';
+  // draw the data
+  data.forEach(function(item,index){
+    if (item[0]!='#') {
+      const itemdata=item.split(' ');
+      const tm=new Date(itemdata[0]*1000);
+      const aantal_seconden=tm.getSeconds()+tm.getMinutes()*60+tm.getHours()*3600;
+      const xpos=map(aantal_seconden, 0, 86400, 0, 1440);
+      ctx.moveTo(xpos,canvasheight);
+      const ypos=map(itemdata[1],0,maxrange,canvasheight,0);
+      ctx.lineTo(xpos,ypos);
+      //console.log("Tijd:"+tm.getHours()+":"+tm.getMinutes()+":"+tm.getSeconds());
+    }
+    ctx.stroke();
+  });
+};
+
+function includeHTML(link, callBack) {
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            callBack(this.responseText);
+        }
+      }
+      xhttp.open("GET", link, true);
+      xhttp.send();
+      return;
+}
+
+</script>
+</body>
+</html>
