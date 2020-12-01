@@ -8,8 +8,6 @@
 #include <WebSocketsClient.h>      /* https://github.com/Links2004/arduinoWebSockets */
 #include <dsmr.h>                  /* https://github.com/matthijskooijman/arduino-dsmr */
 
-
-
 #define USE_WS_BRIDGE              true                      /* true = use a dsmr websocket bridge - false = use a dsmr smartmeter */
 
 const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* bridge adress */
@@ -25,10 +23,10 @@ const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 #include <SSD1306.h>               /* In same library as SH1106 */
 #endif
 
-#define  SAVE_TIME_MIN                 (1)              /* data is saved every(currentMinute % SAVE_TIME_MIN) */
+#define  SAVE_TIME_MIN                 (1)              /* data save interval in minutes */
 
 /* settings for smartMeter */
-#define RXD_PIN                        (26)
+#define RXD_PIN                        (36)
 #define BAUDRATE                       (115200)
 #define UART_NR                        (UART_NUM_2)
 
@@ -72,10 +70,11 @@ const char* HEADER_MODIFIED_SINCE = "If-Modified-Since";
 static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebServerRequest* request, const char* date) {
   return request->hasHeader(HEADER_MODIFIED_SINCE) && request->header(HEADER_MODIFIED_SINCE).equals(date);
 }
+
 void connectToWebSocketBridge() {
   ws_bridge.onEvent(ws_bridge_onEvents);
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-  ws_bridge.enableHeartbeat(500, 300, 4);
+  //ws_bridge.enableHeartbeat(1500, 300, 4);
 }
 
 void setup() {
