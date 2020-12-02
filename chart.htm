@@ -8,7 +8,7 @@ const debugip="192.168.0.177";  //change this to the esp32 ip for remote running
 <meta name="viewport" content="minimal-ui,width=device-width,initial-scale=1.0,user-scalable=no" />
 <link rel="icon" href="data:;base64,iVBORw0KGgo="><!--prevent favicon requests-->
 <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
-<script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+<!--<script src="https://code.jquery.com/jquery-3.4.1.js"></script>-->
 <!--<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>-->
 <title>smartMeterLogger Overzicht</title>
 <meta name="description" content="smartMeterLogger-esp32">
@@ -40,9 +40,10 @@ html,body{
                                   supported by Chrome and Opera */
 }
 #graphContainer{
-  width:1024px;
-  height:400px;
-  margin:auto;
+  width:1440px;
+  height:500px;
+  margin:20px auto;
+  border:solid 1px antiquewhite;
 }
 #myChart{
   width:100%;
@@ -51,7 +52,10 @@ html,body{
 </style>
 </head>
 <body class="noselect">
-<div id="graphContainer"><canvas id="myChart" width="1440" height="500"></canvas></div>
+<div id="graphContainer">
+<canvas id="background" width="1440" height="500"></canvas>
+<canvas id="myChart" width="1440" height="500"></canvas>
+</div>
 <script>
 var url="http://";
 if (window.location.hostname)url+=window.location.hostname;
@@ -60,15 +64,26 @@ var ws_host="ws://";
 if(window.location.hostname)ws_host+=window.location.hostname+"/current";
 else ws_host+=debugip+"/current";
 
+const maxrange=1000;//in w
+
+var canvasbg = document.getElementById('myChart');
+const ctxbg = canvasbg.getContext('2d');
+
 var canvas = document.getElementById('myChart');
 const ctx = canvas.getContext('2d');
 
 const canvasheight=canvas.height;
-const maxrange=1000;//in w
 
 // https://codetonics.com/javascript/detect-document-ready/
+function ready(callbackFunction){
+  if(document.readyState != 'loading')
+    callbackFunction(event)
+  else
+    document.addEventListener("DOMContentLoaded", callbackFunction)
+}
 
-$(document).ready(function(){
+ready(event => {
+  //console.log('DOM is ready.');
   includeHTML("http://192.168.0.107/2020/12/2.log", includeHTML_callBack);
 })
 
@@ -76,41 +91,59 @@ function map(x,in_min,in_max,out_min,out_max){
   return (x-in_min)*(out_max-out_min)/(in_max-in_min)+out_min;
 }
 
+// https://riptutorial.com/html5-canvas/example/13472/fillstyle--a-path-styling-attribute-
+
+// http://zetcode.com/gfx/html5canvas/transparency/
+
+// https://developer.ibm.com/technologies/web-development/tutorials/wa-canvashtml5layering/
+
+// https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas
+
 function includeHTML_callBack(result){
   //split the result in time and usage
   const data = result.split('\n');
   //draw a nice background
   //first a scale background (horizontal stripes)
   ctx.beginPath();
-  ctx.strokeStyle='blue';
-  ctx.textBaseline = 'middle';
+  ctx.textBaseline = "middle";
+  ctx.globalAlpha = .27;
+  ctx.strokeStyle='orange';
   ctx.textAlign = 'center';
+  //ctx.setLineDash([12, 24,12,25])
   ctx.font = "30px Roboto";
   const step=canvasheight/10;
   for(vgrid=canvasheight;vgrid>0;vgrid-=step){
     ctx.moveTo(0,vgrid);
     ctx.lineTo(1440,vgrid);
     ctx.fillStyle = "red";
-    const lineheight=map(vgrid,0,canvasheight,maxrange,0);
-    ctx.fillText(lineheight, 100, vgrid);
-    ctx.fillText(lineheight, 1440/2, vgrid);
-    ctx.fillText(lineheight, 1440-100, vgrid);
-    ctx.stroke();
+    const wattage=map(vgrid,canvasheight,0,0,maxrange).toString()+"W";
+    ctx.fillText(wattage, 100, vgrid);
+    ctx.fillText(wattage, 1440/2, vgrid);
+    ctx.fillText(wattage, 1440-100, vgrid);
   }
+  ctx.stroke();
 
   // draw the whole hours
-
+  ctx.beginPath();
   ctx.strokeStyle='yellow';
+  ctx.fillStyle = "yellow";
+  ctx.setLineDash([12, 24,12,25])
+  ctx.globalAlpha = .35;
   for(h=1;h<24;h++){
     const xpos=map(h,0,24,0,1440);
     ctx.beginPath();
     ctx.moveTo(xpos,0);
     ctx.lineTo(xpos,canvasheight);
+    ctx.fillText(h, xpos, 50);
+    ctx.fillText(h, xpos, canvasheight/2);
+    ctx.fillText(h, xpos, canvasheight-50);
     ctx.stroke();
   }
 
   // draw the data
   ctx.beginPath();
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([]);
   ctx.strokeStyle='green';
   data.forEach(function(item,index){
     if (item[0]!='#') {
