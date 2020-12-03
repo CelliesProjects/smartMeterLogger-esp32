@@ -7,10 +7,8 @@ const debugip="192.168.0.177";  //change this to the esp32 ip for remote running
 <meta charset="utf-8">
 <meta name="viewport" content="minimal-ui,width=device-width,initial-scale=1.0,user-scalable=no" />
 <link rel="icon" href="data:;base64,iVBORw0KGgo="><!--prevent favicon requests-->
-<link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
-<!--<script src="https://code.jquery.com/jquery-3.4.1.js"></script>-->
-<!--<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>-->
-<title>smartMeterLogger Overzicht</title>
+<link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet" crossorigin="anonymous" as="font"> <!-- force loading of font - see https://stackoverflow.com/questions/2756575/drawing-text-to-canvas-with-font-face-does-not-work-at-the-first-time/61809834#61809834  and https://developer.mozilla.org/en-US/docs/Web/HTML/Preloading_content -->
+<title>smartMeterLogger vandaag</title>
 <meta name="description" content="smartMeterLogger-esp32">
 <meta name="author" content="Cellie">
 <script>!function(a,b){"function"==typeof define&&define.amd?define([],b):"undefined"!=typeof module&&module.exports?module.exports=b():a.ReconnectingWebSocket=b()}(this,function(){function a(b,c,d){function l(a,b){var c=document.createEvent("CustomEvent");return c.initCustomEvent(a,!1,!1,b),c}var e={debug:!1,automaticOpen:!0,reconnectInterval:1e3,maxReconnectInterval:3e4,reconnectDecay:1.5,timeoutInterval:2e3};d||(d={});for(var f in e)this[f]="undefined"!=typeof d[f]?d[f]:e[f];this.url=b,this.reconnectAttempts=0,this.readyState=WebSocket.CONNECTING,this.protocol=null;var h,g=this,i=!1,j=!1,k=document.createElement("div");k.addEventListener("open",function(a){g.onopen(a)}),k.addEventListener("close",function(a){g.onclose(a)}),k.addEventListener("connecting",function(a){g.onconnecting(a)}),k.addEventListener("message",function(a){g.onmessage(a)}),k.addEventListener("error",function(a){g.onerror(a)}),this.addEventListener=k.addEventListener.bind(k),this.removeEventListener=k.removeEventListener.bind(k),this.dispatchEvent=k.dispatchEvent.bind(k),this.open=function(b){h=new WebSocket(g.url,c||[]),b||k.dispatchEvent(l("connecting")),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","attempt-connect",g.url);var d=h,e=setTimeout(function(){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","connection-timeout",g.url),j=!0,d.close(),j=!1},g.timeoutInterval);h.onopen=function(){clearTimeout(e),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onopen",g.url),g.protocol=h.protocol,g.readyState=WebSocket.OPEN,g.reconnectAttempts=0;var d=l("open");d.isReconnect=b,b=!1,k.dispatchEvent(d)},h.onclose=function(c){if(clearTimeout(e),h=null,i)g.readyState=WebSocket.CLOSED,k.dispatchEvent(l("close"));else{g.readyState=WebSocket.CONNECTING;var d=l("connecting");d.code=c.code,d.reason=c.reason,d.wasClean=c.wasClean,k.dispatchEvent(d),b||j||((g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onclose",g.url),k.dispatchEvent(l("close")));var e=g.reconnectInterval*Math.pow(g.reconnectDecay,g.reconnectAttempts);setTimeout(function(){g.reconnectAttempts++,g.open(!0)},e>g.maxReconnectInterval?g.maxReconnectInterval:e)}},h.onmessage=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onmessage",g.url,b.data);var c=l("message");c.data=b.data,k.dispatchEvent(c)},h.onerror=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onerror",g.url,b),k.dispatchEvent(l("error"))}},1==this.automaticOpen&&this.open(!1),this.send=function(b){if(h)return(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","send",g.url,b),h.send(b);throw"INVALID_STATE_ERR : Pausing to reconnect websocket"},this.close=function(a,b){"undefined"==typeof a&&(a=1e3),i=!0,h&&h.close(a,b)},this.refresh=function(){h&&h.close()}}return a.prototype.onopen=function(){},a.prototype.onclose=function(){},a.prototype.onconnecting=function(){},a.prototype.onmessage=function(){},a.prototype.onerror=function(){},a.debugAll=!1,a.CONNECTING=WebSocket.CONNECTING,a.OPEN=WebSocket.OPEN,a.CLOSING=WebSocket.CLOSING,a.CLOSED=WebSocket.CLOSED,a});</script>
@@ -25,7 +23,7 @@ html,body{
   margin:0;
   padding:0;
   background:black;
-  color:#f1f1f1;
+  color:antiquewhite;
   text-align:center;
   font-family:'Roboto',sans-serif;
   overflow:hidden;
@@ -44,18 +42,31 @@ html,body{
   height:500px;
   margin:20px auto;
   border:solid 1px antiquewhite;
+  position:relative;
+  overflow:hidden;
 }
-#myChart{
-  width:100%;
-  height:100%;
+#usage,#background{
+  position:absolute;
+  top:0;
+  bottom:0;
+  right:0;
+  left:0;
+}
+#background{
+  opacity:0.25;
+}
+#usage{
+  opacity:0.6;
 }
 </style>
 </head>
 <body class="noselect">
+<h1>electriciteit gebruik vandaag</h1>
 <div id="graphContainer">
 <canvas id="background" width="1440" height="500"></canvas>
-<canvas id="myChart" width="1440" height="500"></canvas>
+<canvas id="usage" width="1440" height="500"></canvas>
 </div>
+<div id="overview"></div>
 <script>
 var url="http://";
 if (window.location.hostname)url+=window.location.hostname;
@@ -64,15 +75,12 @@ var ws_host="ws://";
 if(window.location.hostname)ws_host+=window.location.hostname+"/current";
 else ws_host+=debugip+"/current";
 
-const maxrange=1000;//in w
+const maxrange=2000;//in Watts
 
-var canvasbg = document.getElementById('myChart');
-const ctxbg = canvasbg.getContext('2d');
-
-var canvas = document.getElementById('myChart');
-const ctx = canvas.getContext('2d');
-
-const canvasheight=canvas.height;
+var lowestUse=10000000;
+var hightime;
+var highestUse=0;
+var lowtime;
 
 // https://codetonics.com/javascript/detect-document-ready/
 function ready(callbackFunction){
@@ -84,7 +92,8 @@ function ready(callbackFunction){
 
 ready(event => {
   //console.log('DOM is ready.');
-  includeHTML("http://192.168.0.107/2020/12/2.log", includeHTML_callBack);
+  drawBackground();
+  includeHTML("http://192.168.0.107/2020/12/3.log", includeHTML_callBack);
 })
 
 function map(x,in_min,in_max,out_min,out_max){
@@ -99,65 +108,91 @@ function map(x,in_min,in_max,out_min,out_max){
 
 // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas
 
-function includeHTML_callBack(result){
-  //split the result in time and usage
-  const data = result.split('\n');
-  //draw a nice background
-  //first a scale background (horizontal stripes)
-  ctx.beginPath();
-  ctx.textBaseline = "middle";
-  ctx.globalAlpha = .27;
-  ctx.strokeStyle='orange';
-  ctx.textAlign = 'center';
-  //ctx.setLineDash([12, 24,12,25])
+// https://dev.opera.com/articles/html5-canvas-basics/
+
+function drawBackground() {
+  const canvas = document.getElementById('background');
+  const ctx = canvas.getContext('2d');
   ctx.font = "30px Roboto";
-  const step=canvasheight/10;
-  for(vgrid=canvasheight;vgrid>0;vgrid-=step){
+  ctx.setLineDash([5,5,5]);
+  ctx.lineWidth = .7;
+  ctx.strokeStyle='white';
+  ctx.fillStyle = 'yellow';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const step=canvas.height/10;
+  for(vgrid=canvas.height;vgrid>=0;vgrid-=step){
+    ctx.beginPath();
     ctx.moveTo(0,vgrid);
     ctx.lineTo(1440,vgrid);
-    ctx.fillStyle = "red";
-    const wattage=map(vgrid,canvasheight,0,0,maxrange).toString()+"W";
+    ctx.stroke();
+    const wattage=map(vgrid,canvas.height,0,0,maxrange).toString()+"W";
     ctx.fillText(wattage, 100, vgrid);
-    ctx.fillText(wattage, 1440/2, vgrid);
     ctx.fillText(wattage, 1440-100, vgrid);
   }
-  ctx.stroke();
-
-  // draw the whole hours
-  ctx.beginPath();
   ctx.strokeStyle='yellow';
-  ctx.fillStyle = "yellow";
-  ctx.setLineDash([12, 24,12,25])
-  ctx.globalAlpha = .35;
   for(h=1;h<24;h++){
     const xpos=map(h,0,24,0,1440);
     ctx.beginPath();
+    ctx.lineWidth = .7;
     ctx.moveTo(xpos,0);
-    ctx.lineTo(xpos,canvasheight);
-    ctx.fillText(h, xpos, 50);
-    ctx.fillText(h, xpos, canvasheight/2);
-    ctx.fillText(h, xpos, canvasheight-50);
+    ctx.lineTo(xpos,canvas.height);
     ctx.stroke();
+    ctx.font = "30px Roboto";
+    ctx.fillText(h, xpos, 25);
+    ctx.fillText(h, xpos, (canvas.height/2)-25);
+    ctx.fillText(h, xpos, canvas.height-25);
   }
+}
 
-  // draw the data
-  ctx.beginPath();
-  ctx.globalAlpha = 1;
+function includeHTML_callBack(result){
+  const canvas = document.getElementById('usage');
+  const ctx = canvas.getContext('2d');
+  ctx.lineWidth = 2;
   ctx.setLineDash([]);
-  ctx.strokeStyle='green';
+  const data = result.split('\n');
+  var reboots=0;
   data.forEach(function(item,index){
-    if (item[0]!='#') {
+    if (item.startsWith('#')) {
+      //draw a line at this time to indicate that board was rebooted
+      const tm=new Date(item.substring(1)*1000);
+      const reboottime=tm.getSeconds()+tm.getMinutes()*60+tm.getHours()*3600;
+      const xpos=map(reboottime,0,86400,0,1440);
+      ctx.beginPath();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle="red";
+      ctx.moveTo(xpos,0);
+      ctx.lineTo(xpos,canvas.height);
+      reboots++;
+      ctx.stroke();
+    }
+    else
+    {
       const itemdata=item.split(' ');
       const tm=new Date(itemdata[0]*1000);
+      // find lowest/highest value
+      if (parseInt(itemdata[1]) < lowestUse) {
+        lowestUse = parseInt(itemdata[1]);
+        lowtime = new Date(itemdata[0]*1000);
+      }
+      if (parseInt(itemdata[1]) > highestUse) {
+        highestUse = parseInt(itemdata[1]);
+        hightime = new Date(itemdata[0]*1000);
+      }
       const aantal_seconden=tm.getSeconds()+tm.getMinutes()*60+tm.getHours()*3600;
-      const xpos=map(aantal_seconden,0,86400,0,1440);
-      ctx.moveTo(xpos,canvasheight);
-      const ypos=map(itemdata[1],0,maxrange,canvasheight,0);
+      const xpos=map(aantal_seconden-30,0,86400,0,1440);
+      ctx.beginPath();
+      ctx.strokeStyle='green';
+      ctx.moveTo(xpos,canvas.height);
+      const ypos=map(itemdata[1],0,maxrange,canvas.height,0);
       ctx.lineTo(xpos,ypos);
-      //console.log("Tijd:"+tm.getHours()+":"+tm.getMinutes()+":"+tm.getSeconds());
+      ctx.stroke();
     }
-    ctx.stroke();
   });
+  console.log(reboots+" reboots");
+  const overview = document.getElementById('overview');
+  overview.innerHTML=reboots+" reboot(s) - laagste verbruik "+lowestUse+"W op "+lowtime.getHours()+":"+lowtime.getMinutes()+
+  " - hoogste verbruik "+highestUse+"W op "+hightime.getHours()+":"+hightime.getMinutes();
 };
 
 function includeHTML(link, callBack) {
