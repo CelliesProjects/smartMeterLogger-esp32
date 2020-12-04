@@ -68,10 +68,8 @@ else ws_host+=debugip+serverpath;
 $(document).ready(function(){
   var ws=new ReconnectingWebSocket(ws_host,null,{debug:false,reconnectInterval:3000});
   ws.onmessage=function(e){
-    console.log(e.data);
     if(!e.data.startsWith(serverResponse))return;
     var dsmr = e.data.substring(serverResponse.length).split('\n');
-    console.log(dsmr);
     if(dsmr[0])$('#currentUse').html(dsmr[0]+"W");
     if(dsmr[1])$('#lowUsed').html('<span class="useVal">totaal laag: '+(dsmr[1]/1000.0).toFixed(3).replace(".", ",")+' kWh</span><span class="useVal">vandaag: '+(dsmr[4]/1000.0).toFixed(3).replace(".", ",")+' kWh</span>');
     if(dsmr[2])$('#highUsed').html('<span class="useVal">totaal hoog: '+(dsmr[2]/1000.0).toFixed(3).replace(".", ",")+' kWh</span><span class="useVal">vandaag: '+(dsmr[5]/1000.0).toFixed(3).replace(".", ",")+' kWh</span>');

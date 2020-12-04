@@ -16,6 +16,7 @@ const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 
 #include "wifisetup.h"
 #include "index_htm.h"
+#include "vandaag_htm.h"
 
 #if defined(SH1106_OLED)
 #include <SH1106.h>                /* Install via 'Manage Libraries' in Arduino IDE -> https://github.com/ThingPulse/esp8266-oled-ssd1306 */
@@ -142,6 +143,13 @@ void setup() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm, index_htm_len);
+    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+    request->send(response);
+  });
+
+  server.on("/vandaag", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, vandaag_htm, vandaag_htm_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
     request->send(response);
   });

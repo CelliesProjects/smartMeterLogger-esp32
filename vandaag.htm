@@ -7,8 +7,7 @@ const debugip="192.168.0.107";  //change this to the esp32 ip for remote running
 <meta charset="utf-8">
 <meta name="viewport" content="minimal-ui,width=device-width,initial-scale=1.0,user-scalable=no" />
 <link rel="icon" href="data:;base64,iVBORw0KGgo="><!--prevent favicon requests-->
-<link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet" crossorigin="anonymous" as="font"> <!-- force loading of font - see https://stackoverflow.com/questions/2756575/drawing-text-to-canvas-with-font-face-does-not-work-at-the-first-time/61809834#61809834  and https://developer.mozilla.org/en-US/docs/Web/HTML/Preloading_content -->
-<script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+<link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto" as="font" crossorigin="anonymous"> <!-- force loading of font - see https://stackoverflow.com/questions/2756575/drawing-text-to-canvas-with-font-face-does-not-work-at-the-first-time/61809834#61809834  and https://developer.mozilla.org/en-US/docs/Web/HTML/Preloading_content -->
 <title>smartMeterLogger vandaag</title>
 <meta name="description" content="smartMeterLogger-esp32">
 <meta name="author" content="Cellie">
@@ -29,6 +28,9 @@ html,body{
   font-family:'Roboto',sans-serif;
   overflow:hidden;
 }
+h2{
+  margin:5px;
+}
 .noselect{
   -webkit-touch-callout:none; /* iOS Safari */
     -webkit-user-select:none; /* Safari */
@@ -41,7 +43,7 @@ html,body{
 #graphContainer{
   width:1440px;
   height:500px;
-  margin:20px auto;
+  margin:5px auto;
   border:solid 1px antiquewhite;
   position:relative;
   overflow:hidden;
@@ -59,27 +61,36 @@ html,body{
 #dayGraph{
   opacity:0.6;
 }
+
+#scale{
+  display:flex;
+  width:1440px;
+  margin:auto;
+}
+#overview,#label{
+  margin:5px;
+}
 .rangebutton{
-  width:100px;
+  width:25%;
 }
 </style>
 </head>
 <body class="noselect">
-<h1>electriciteit gebruik <span id="date"></span></h1>
+<h2 id="date">&nbsp;</h2>
 
-<div>
-<input type="button" class="rangebutton" value="500W" onclick="setRange(500)">
-<input type="button" class="rangebutton" value="1000W" onclick="setRange(1000)">
-<input type="button" class="rangebutton" value="2000W" onclick="setRange(2000)">
-<input type="button" class="rangebutton" value="4000W" onclick="setRange(4000)">
+<div id="scale">
+<input type="button" class="rangebutton" value="schaal 500W" onclick="setRange(500)">
+<input type="button" class="rangebutton" value="schaal 1000W" onclick="setRange(1000)">
+<input type="button" class="rangebutton" value="schaal 2000W" onclick="setRange(2000)">
+<input type="button" class="rangebutton" value="schaal 4000W" onclick="setRange(4000)">
 </div>
 
 <div id="graphContainer">
 <canvas id="background" width="1440" height="500"></canvas>
 <canvas id="dayGraph" width="1440" height="500"></canvas>
 </div>
+<div id="overview">&nbsp;</div>
 
-<div id="overview"></div>
 <script>
 
 var url="http://";
@@ -105,28 +116,32 @@ const serverpath="/events";
 
 var savedData;
 
-$(document).ready(function(){
+function ready(callbackFunction){
+  if(document.readyState != 'loading')
+    callbackFunction(event);
+  else
+    document.addEventListener("DOMContentLoaded", callbackFunction);
+}
+
+ready(event => {
   drawBackground();
   getData(dataUrl,drawGraph);
-
   var ws=new ReconnectingWebSocket(ws_host,null,{debug:false,reconnectInterval:3000});
-  ws.onmessage=function(e){
-    if(!e.data.startsWith(serverResponse))return;
-    var item = e.data.substring(e.data.indexOf('\n'));
-    console.log(item);
-    savedData+=item;
-    drawGraphLine(item);
-  };
   ws.onopen=function(event){console.log('[WebSocket] Connected');}
   ws.onclose=function(event){console.log('[WebSocket] Connection died, code='+event.code+' reason='+event.reason);}
   ws.onerror=function(error){console.log('[WebSocket] Error: '+error.message);}
-});
+  ws.onmessage=function(e){
+    if(!e.data.startsWith(serverResponse))return;
+    var item = e.data.substring(e.data.indexOf('\n'));
+    savedData+=item;
+    drawGraphItem(item);
+    updateFooter();
+  };
+})
 
-function drawGraphLine(item){
-
+function drawGraphItem(item){
   const itemdata=item.split(' ');
   const tm=new Date(itemdata[0]*1000);
-  // find lowest/highest value
   if (parseInt(itemdata[1]) < lowestUse) {
     lowestUse = parseInt(itemdata[1]);
     lowtime = tm;
@@ -140,7 +155,7 @@ function drawGraphLine(item){
   const canvas = document.getElementById('dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.beginPath();
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1;
   ctx.strokeStyle='green';
   ctx.moveTo(xpos,canvas.height);
   const ypos=map(itemdata[1],0,maxrange,canvas.height,0);
@@ -162,7 +177,18 @@ function getData(url,callBack) {
 }
 
 function map(x,in_min,in_max,out_min,out_max){
-  return (x-in_min)*(out_max-out_min)/(in_max-in_min)+out_min;
+  return(x-in_min)*(out_max-out_min)/(in_max-in_min)+out_min;
+}
+
+var reboots=0;
+
+function updateFooter(){
+  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',/* hour: '2-digit', minute: '2-digit', second: '2-digit',*/ hour12: false};
+  var formattedDate = new Date(lowtime).toLocaleDateString('nl-NL', options);
+  const date = document.getElementById('date');
+  date.innerHTML = formattedDate;
+  const overview = document.getElementById('overview');
+  overview.innerHTML = reboots+" reboot(s) - laagst gemeten verbruik "+lowestUse+"W om "+lowtime.toLocaleTimeString()+" - hoogst gemeten verbruik "+highestUse+"W om "+hightime.toLocaleTimeString();
 }
 
 function drawBackground() {
@@ -206,11 +232,9 @@ function drawGraph(rawdata){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
-  var reboots=0;
-
+  reboots=0;
   rawdata.split('\n').forEach(function(item){
     if (item.startsWith('#')) {
-      //draw a line at this time to indicate that board was rebooted
       const tm=new Date(item.substring(1)*1000);
       const reboottime=tm.getSeconds()+tm.getMinutes()*60+tm.getHours()*3600;
       const xpos=map(reboottime,0,86400,0,1440);
@@ -222,23 +246,17 @@ function drawGraph(rawdata){
       reboots++;
       ctx.stroke();
     } else {
-      drawGraphLine(item);
+      drawGraphItem(item);
     }
   });
-
-  //get the date and put in header
-  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',/* hour: '2-digit', minute: '2-digit', second: '2-digit',*/ hour12: false};
-  var formattedDate = new Date(lowtime).toLocaleDateString('nl-NL', options);
-  const date = document.getElementById('date');
-  date.innerHTML = formattedDate;
-  const overview = document.getElementById('overview');
-  overview.innerHTML = reboots+" reboot(s) - laagst gemeten verbruik "+lowestUse+"W om "+lowtime.toLocaleTimeString()+" - hoogst gemeten verbruik "+highestUse+"W om "+hightime.toLocaleTimeString();
+  updateFooter();  
 };
 
 function setRange(range){
   maxrange=range;
   drawBackground();
   drawGraph(savedData);
+  //TODO: set the clicked button to some color
 }
 
 </script>
