@@ -81,7 +81,7 @@ html,body{
 
 <div id="overview"></div>
 <script>
-  
+
 var url="http://";
 if (window.location.hostname)url+=window.location.hostname;
 else url+=debugip;
@@ -105,12 +105,26 @@ var lowtime;
 const serverResponse="electric_saved\n";
 const serverpath="/events";
 
+var savedData;
 
+$(document).ready(function(){
+  drawBackground();
+  getData(dataUrl,drawGraph);
 
-
-
+  var ws=new ReconnectingWebSocket(ws_host,null,{debug:false,reconnectInterval:3000});
+  ws.onmessage=function(e){
+    if(!e.data.startsWith(serverResponse))return;
+    var item = e.data.substring(e.data.indexOf('\n')+1);
+    savedData+=item;
+    drawGraphLine(item);
+  };
+  ws.onopen=function(event){console.log('[WebSocket] Connected');}
+  ws.onclose=function(event){console.log('[WebSocket] Connection died, code='+event.code+' reason='+event.reason);}
+  ws.onerror=function(error){console.log('[WebSocket] Error: '+error.message);}
+});
 
 function drawGraphLine(item){
+
   const itemdata=item.split(' ');
   const tm=new Date(itemdata[0]*1000);
   // find lowest/highest value
@@ -134,37 +148,12 @@ function drawGraphLine(item){
   ctx.lineTo(xpos,ypos);
   ctx.stroke();
 }
-      
-      
-      
-      
-        
-
-$(document).ready(function(){
-  var savedData=[];  
-  drawBackground();
-  getData(dataUrl,drawGraph);
-
-  var ws=new ReconnectingWebSocket(ws_host,null,{debug:false,reconnectInterval:3000});
-  ws.onmessage=function(e){
-    //console.log(e.data);
-    if(!e.data.startsWith(serverResponse))return;
-    var item = e.data.substring(e.data.indexOf('\n')+1);
-    console.log(item);
-    savedData.push(item);
-    //draw the val on the graph
-    drawGraphLine(item);
-  };
-  ws.onopen=function(event){console.log('[WebSocket] Connected');}
-  ws.onclose=function(event){console.log('[WebSocket] Connection died, code='+event.code+' reason='+event.reason);}
-  ws.onerror=function(error){console.log('[WebSocket] Error: '+error.message);}
-});
 
 function getData(url,callBack) {
   var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
-        savedData=this.responseText; 
+        savedData+=this.responseText;
         callBack(this.responseText);
     }
   }
