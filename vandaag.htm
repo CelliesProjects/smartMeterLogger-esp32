@@ -90,8 +90,6 @@ var ws_host="ws://";
 if(window.location.hostname)ws_host+=window.location.hostname+"/events";
 else ws_host+=debugip+"/events";
 
-//TODO: connect to the (yet to write) websocket '/events'
-
 const tm=new Date;
 var dataUrl=url+"/"+tm.getFullYear()+"/"+(tm.getMonth()+1)+"/"+tm.getDate()+".log";
 
@@ -114,7 +112,8 @@ $(document).ready(function(){
   var ws=new ReconnectingWebSocket(ws_host,null,{debug:false,reconnectInterval:3000});
   ws.onmessage=function(e){
     if(!e.data.startsWith(serverResponse))return;
-    var item = e.data.substring(e.data.indexOf('\n')+1);
+    var item = e.data.substring(e.data.indexOf('\n'));
+    console.log(item);
     savedData+=item;
     drawGraphLine(item);
   };
@@ -153,7 +152,7 @@ function getData(url,callBack) {
   var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
-        savedData+=this.responseText;
+        savedData=this.responseText;
         callBack(this.responseText);
     }
   }
