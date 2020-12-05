@@ -41,8 +41,6 @@ h2{
                                   supported by Chrome and Opera */
 }
 #graphContainer{
-  width:1440px;
-  height:500px;
   margin:5px auto;
   border:solid 1px antiquewhite;
   position:relative;
@@ -64,7 +62,6 @@ h2{
 
 #scale{
   display:flex;
-  width:1440px;
   margin:auto;
 }
 #overview,#label{
@@ -73,10 +70,56 @@ h2{
 .rangebutton{
   width:25%;
 }
+@media only screen and (max-width: 600px) {
+  #scale,#graphContainer,#dayGraph,#background{
+    display: none;
+  }
+}
+@media only screen and (min-width: 600px) {
+  #graphContainer,#dayGraph,#background{
+    width: 600px;
+    height:208px;
+  }
+  #scale{width: 600px;}
+}
+@media only screen and (min-width: 800px) {
+  #graphContainer,#dayGraph,#background{
+    width: 800px;
+    height:277px;
+  }
+  #scale{width: 800px;}
+}
+
+@media only screen and (min-width: 1024px) {
+  #graphContainer,#dayGraph,#background{
+    width: 1024px;
+    height:355px;
+  }
+  #scale{width: 1024px;}
+}
+@media only screen and (min-width: 1280px) {
+  #graphContainer,#dayGraph,#background{
+    width: 1280px;
+    height:444px;
+  }
+  #scale{width: 1280px;}
+}
+@media only screen and (min-width: 1440px) {
+  #graphContainer,#dayGraph,#background{
+    width: 1440px;
+    height:500px;
+  }
+  #scale{width: 1440px;}
+}
 </style>
 </head>
 <body class="noselect">
 <h2 id="date">&nbsp;</h2>
+
+<div id="graphContainer">
+<canvas id="background" width="1440" height="500"></canvas>
+<canvas id="dayGraph" width="1440" height="500"></canvas>
+</div>
 
 <div id="scale">
 <input type="button" class="rangebutton" value="schaal 500W" onclick="setRange(500)">
@@ -85,10 +128,6 @@ h2{
 <input type="button" class="rangebutton" value="schaal 4000W" onclick="setRange(4000)">
 </div>
 
-<div id="graphContainer">
-<canvas id="background" width="1440" height="500"></canvas>
-<canvas id="dayGraph" width="1440" height="500"></canvas>
-</div>
 <div id="overview">&nbsp;</div>
 
 <script>
@@ -111,8 +150,8 @@ var hightime;
 var highestUse=0;
 var lowtime;
 
-const serverResponse="electric_saved\n";
 const serverpath="/events";
+const serverResponse="electric_saved\n";
 
 var savedData;
 
