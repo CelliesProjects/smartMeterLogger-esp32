@@ -154,7 +154,7 @@ void setup() {
     request->send(response);
   });
 
-  server.serveStatic("/", SD, "/");
+  server.serveStatic("/", SD, "/").setCacheControl("no-store");
 
   server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
