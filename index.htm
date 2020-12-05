@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script>
-const debugip="192.168.0.177";  //change this to the esp32 ip for remote running of this page
+const debugip="192.168.0.107";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="minimal-ui,width=device-width,initial-scale=1.0,user-scalable=no" />
@@ -60,12 +60,13 @@ var url="http://";
 if (window.location.hostname)url+=window.location.hostname;
 else url+=debugip;
 var ws_host="ws://";
-if(window.location.hostname)ws_host+=window.location.hostname+"/current";
-else ws_host+=debugip+"/current";
+if(window.location.hostname)ws_host+=window.location.hostname+"/events";
+else ws_host+=debugip+"/events";
 $(document).ready(function(){
   var ws=new ReconnectingWebSocket(ws_host,null,{debug:false,reconnectInterval:3000});
   ws.onmessage=function(e){
-    var dsmr = e.data.split('\n');
+    if(!e.data.startsWith('current\n'))return;
+    var dsmr = e.data.substring(e.data.indexOf('\n')+1).split('\n');
     if(dsmr[0])$('#currentUse').html(dsmr[0]+"W");
     if(dsmr[1])$('#lowUsed').html('<span class="useVal">totaal laag: '+(dsmr[1]/1000.0).toFixed(3).replace(".", ",")+' kWh</span><span class="useVal">vandaag: '+(dsmr[4]/1000.0).toFixed(3).replace(".", ",")+' kWh</span>');
     if(dsmr[2])$('#highUsed').html('<span class="useVal">totaal hoog: '+(dsmr[2]/1000.0).toFixed(3).replace(".", ",")+' kWh</span><span class="useVal">vandaag: '+(dsmr[5]/1000.0).toFixed(3).replace(".", ",")+' kWh</span>');
@@ -74,7 +75,7 @@ $(document).ready(function(){
   };
   ws.onopen=function(event){console.log('[WebSocket] Connected');}
   ws.onclose=function(event){console.log('[WebSocket] Connection died, code='+event.code+' reason='+event.reason);}
-  ws.onerror=function(error){console.log('[WebSocket] Error: '+error.message);}
+  ws.onerror=function(error){console.log('[WebSocket] '+ws_host+' Error: '+error.message);}
 })
 </script>
 </body>

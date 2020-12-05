@@ -16,6 +16,7 @@ const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 
 #include "wifisetup.h"
 #include "index_htm.h"
+#include "vandaag_htm.h"
 
 #if defined(SH1106_OLED)
 #include <SH1106.h>                /* Install via 'Manage Libraries' in Arduino IDE -> https://github.com/ThingPulse/esp8266-oled-ssd1306 */
@@ -146,6 +147,13 @@ void setup() {
     request->send(response);
   });
 
+  server.on("/vandaag", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, vandaag_htm, vandaag_htm_len);
+    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+    request->send(response);
+  });
+
   server.serveStatic("/", SD, "/");
 
   server.onNotFound([](AsyncWebServerRequest * request) {
@@ -210,7 +218,6 @@ void saveAverage(const tm& timeinfo) {
 }
 
 void loop() {
-  //ws_raw.cleanupClients();
   ws_events.cleanupClients();
 
   /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
@@ -328,9 +335,6 @@ bool appendToFile(const char* path, const char* message) {
 }
 
 void process(const String& telegram) {
-
-  //ws_raw.textAll(telegram);
-
   using decodedFields = ParsedData <
                         /* FixedValue */ energy_delivered_tariff1,
                         /* FixedValue */ energy_delivered_tariff2,
