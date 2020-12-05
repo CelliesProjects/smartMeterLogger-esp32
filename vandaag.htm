@@ -54,10 +54,10 @@ h2{
   left:0;
 }
 #background{
-  opacity:0.25;
+  opacity:0.7;
 }
 #dayGraph{
-  opacity:0.6;
+  opacity:0.5;
 }
 
 #scale{
@@ -196,7 +196,7 @@ function drawGraphItem(item){
   const ctx = canvas.getContext('2d');
   ctx.beginPath();
   ctx.lineWidth = 1;
-  ctx.strokeStyle='green';
+  ctx.strokeStyle='white';
   ctx.moveTo(xpos,canvas.height);
   const ypos=map(itemdata[1],0,maxrange,canvas.height,0);
   ctx.lineTo(xpos,ypos);
