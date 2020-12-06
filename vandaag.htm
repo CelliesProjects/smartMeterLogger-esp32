@@ -284,7 +284,7 @@ function drawGraph(rawdata){
   reboots=0;
   rawdata.split('\n').forEach(function(item){
     if (item.startsWith('#')) {
-      const tm=new Date(item.substring(1)*1000);
+      const tm=new Date(item.substring(1,item.indexOf(" "))*1000);
       const reboottime=tm.getSeconds()+tm.getMinutes()*60+tm.getHours()*3600;
       const xpos=map(reboottime,0,86400,0,1440);
       ctx.beginPath();
