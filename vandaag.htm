@@ -132,7 +132,6 @@ h2{
 <div id="overview">&nbsp;</div>
 
 <script>
-
 var url="http://";
 if (window.location.hostname)url+=window.location.hostname;
 else url+=debugip;
@@ -143,18 +142,16 @@ else ws_host+=debugip+"/events";
 
 const tm=new Date;
 var dataUrl=url+"/"+tm.getFullYear()+"/"+(tm.getMonth()+1)+"/"+tm.getDate()+".log";
-
+var currentDate=tm.getDate();
 var maxrange=500; //in Watts
-
 var lowestUse=10000000;
 var hightime;
 var highestUse=0;
 var lowtime;
 
+/* connect to serverpath and wait for trigger serverResponse */
 const serverpath="/events";
 const serverResponse="electric_saved\n";
-
-var savedData;
 
 function ready(callbackFunction){
   if(document.readyState != 'loading')
@@ -162,6 +159,17 @@ function ready(callbackFunction){
   else
     document.addEventListener("DOMContentLoaded", callbackFunction);
 }
+
+function checkDayChange(){
+  const now = new Date;
+  if (now.getDate()!=currentDate) {
+    dataUrl=url+"/"+now.getFullYear()+"/"+(now.getMonth()+1)+"/"+now.getDate()+".log";
+    currentDate=now.getDate();
+    getData(dataUrl,drawGraph);
+  }
+}
+
+var savedData;
 
 ready(event => {
   drawBackground();
@@ -177,6 +185,7 @@ ready(event => {
     drawGraphItem(item);
     updateFooter();
   };
+  var dateTimer = setInterval(checkDayChange, 5000);
 })
 
 function drawGraphItem(item){
