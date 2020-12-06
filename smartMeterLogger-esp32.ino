@@ -143,6 +143,8 @@ void setup() {
   static char modifiedDate[30];
   static const char* HTML_MIMETYPE{"text/html"};
   static const char* HEADER_LASTMODIFIED{"Last-Modified"};
+  static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
+  static const char* CONTENT_ENCODING_VALUE{"gzip"};
 
   strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
 
@@ -150,7 +152,7 @@ void setup() {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm_gz, index_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader("Content-Encoding", "gzip");
+    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_VALUE);
     request->send(response);
   });
 
@@ -158,7 +160,7 @@ void setup() {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, vandaag_htm_gz, vandaag_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader("Content-Encoding", "gzip");
+    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_VALUE);
     request->send(response);
   });
 
