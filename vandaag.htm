@@ -59,22 +59,22 @@ h2{
 #dayGraph{
   opacity:0.5;
 }
-
 #scale{
   display:flex;
   margin:auto;
 }
-#overview,#label{
-  margin:5px;
-  margin-bottom:15px;
-}
 .rangebutton{
   width:25%;
+}
+#displaytesmal{
+  line-height:200px;
+  display:none;
 }
 @media only screen and (max-width: 600px) {
   #scale,#graphContainer,#dayGraph,#background{
     display: none;
   }
+  #displaytesmal{display:block;}
 }
 @media only screen and (min-width: 600px) {
   #graphContainer,#dayGraph,#background{
@@ -112,25 +112,41 @@ h2{
   }
   #scale{width: 1440px;}
 }
+#header{
+  width:100%;
+  margin:0;
+  font-size: 25px;
+}
+#date, #current{
+  margin:0;
+  display:inline-table;
+  vertical-align:middle;
+  white-space:nowrap;
+  width:50%;
+}
+.footer{
+  margin:5px 10px;
+  display:inline-table;
+  white-space: nowrap;
+}
 </style>
 </head>
 <body class="noselect">
-<h2 id="date">&nbsp;</h2>
-
+<div id="header">
+  <p id="date">&nbsp;</p><p id="current"></p>
+</div>
 <div id="graphContainer">
-<canvas id="background" width="1440" height="500"></canvas>
-<canvas id="dayGraph" width="1440" height="500"></canvas>
+  <canvas id="background" width="1440" height="500"></canvas>
+  <canvas id="dayGraph" width="1440" height="500"></canvas>
 </div>
-
 <div id="scale">
-<input type="button" class="rangebutton" value="schaal 500W" onclick="setRange(500)">
-<input type="button" class="rangebutton" value="schaal 1000W" onclick="setRange(1000)">
-<input type="button" class="rangebutton" value="schaal 2000W" onclick="setRange(2000)">
-<input type="button" class="rangebutton" value="schaal 4000W" onclick="setRange(4000)">
+  <input type="button" class="rangebutton" value="schaal 500W" onclick="setRange(500)">
+  <input type="button" class="rangebutton" value="schaal 1000W" onclick="setRange(1000)">
+  <input type="button" class="rangebutton" value="schaal 2000W" onclick="setRange(2000)">
+  <input type="button" class="rangebutton" value="schaal 4000W" onclick="setRange(4000)">
 </div>
-
-<div id="overview">&nbsp;</div>
-
+<div id="displaytesmal">Beeldscherm is te smal voor grafieken</div>
+<div id="overview"></div>
 <script>
 var url="http://";
 if (window.location.hostname)url+=window.location.hostname;
@@ -152,6 +168,7 @@ var lowtime;
 /* connect to serverpath and wait for trigger serverResponse */
 const serverpath="/events";
 const serverResponse="electric_saved\n";
+const serverResponseCurrent="current\n";
 
 function ready(callbackFunction){
   if(document.readyState != 'loading')
@@ -179,11 +196,16 @@ ready(event => {
   ws.onclose=function(event){console.log('[WebSocket] Connection died, code='+event.code+' reason='+event.reason);}
   ws.onerror=function(error){console.log('[WebSocket] Error: '+error.message);}
   ws.onmessage=function(e){
-    if(!e.data.startsWith(serverResponse))return;
-    var item = e.data.substring(e.data.indexOf('\n'));
-    savedData+=item;
-    drawGraphItem(item);
-    updateFooter();
+    if(e.data.startsWith(serverResponse)) {
+      var item = e.data.substring(e.data.indexOf('\n'));
+      savedData+=item;
+      drawGraphItem(item);
+      updateFooter();
+    }
+    if (e.data.startsWith(serverResponseCurrent)) {
+      const current = document.getElementById('current');
+      current.innerHTML = "huidig verbruik: " + e.data.split('\n')[1]+"W";
+    }
   };
   var dateTimer = setInterval(checkDayChange, 5000);
 })
@@ -230,15 +252,6 @@ function map(x,in_min,in_max,out_min,out_max){
 }
 
 var reboots=0;
-
-function updateFooter(){
-  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',/* hour: '2-digit', minute: '2-digit', second: '2-digit',*/ hour12: false};
-  var formattedDate = new Date(lowtime).toLocaleDateString('nl-NL', options);
-  const date = document.getElementById('date');
-  date.innerHTML = formattedDate;
-  const overview = document.getElementById('overview');
-  overview.innerHTML = reboots+" reboot(s) - laagst gemeten verbruik "+lowestUse+"W om "+lowtime.toLocaleTimeString()+" - hoogst gemeten verbruik "+highestUse+"W om "+hightime.toLocaleTimeString();
-}
 
 function drawBackground() {
   const canvas = document.getElementById('background');
@@ -298,8 +311,22 @@ function drawGraph(rawdata){
       drawGraphItem(item);
     }
   });
-  updateFooter();  
+  updateFooter();
 };
+
+
+function updateFooter(){
+  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',/* hour: '2-digit', minute: '2-digit', second: '2-digit',*/ hour12: false};
+  var formattedDate = new Date(lowtime).toLocaleDateString('nl-NL', options);
+  const date = document.getElementById('date');
+  date.innerHTML = formattedDate;
+  const overview = document.getElementById('overview');
+  var html;
+  if (reboots) html = '<span class="footer">' +reboots + ' reboot(s)</span>';
+  html += '<span class="footer">laagste verbruik ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString() + '</span>';
+  html += '<span class="footer">hoogste verbruik ' + highestUse + 'W om ' + hightime.toLocaleTimeString() + '</span>';
+  overview.innerHTML = html;
+}
 
 function setRange(range){
   maxrange=range;
@@ -307,7 +334,6 @@ function setRange(range){
   drawGraph(savedData);
   //TODO: set the clicked button to some color
 }
-
 </script>
 </body>
 </html>
