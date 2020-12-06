@@ -24,8 +24,6 @@ const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* bridge adress */
 const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
 const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 
-
-
 #define  SAVE_TIME_MIN                 (1)              /* data save interval in minutes */
 
 /* settings for smartMeter */
@@ -53,14 +51,14 @@ const IPAddress SECONDARY_DNS(192, 168, 0, 50);          /* Check in your router
 const char*     WS_EVENTS_URL = "/events";
 
 WebSocketsClient ws_bridge;
-AsyncWebServer  server(80);
-AsyncWebSocket  ws_events(WS_EVENTS_URL);
-HardwareSerial  smartMeter(UART_NR);
+AsyncWebServer server(80);
+AsyncWebSocket ws_events(WS_EVENTS_URL);
+HardwareSerial smartMeter(UART_NR);
 
 #if defined(SH1106_OLED)
-SH1106          oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
+SH1106 oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 #else
-SSD1306         oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
+SSD1306 oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 #endif
 
 struct {
@@ -219,7 +217,7 @@ void saveAverage(const tm& timeinfo) {
       current.gas
     };
 
-    ESP_LOGI(TAG, "writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
+    ESP_LOGD(TAG, "writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
 
     appendToFile(path.c_str(), startHeader.c_str());
     booted = false;
