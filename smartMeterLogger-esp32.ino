@@ -8,12 +8,6 @@
 #include <WebSocketsClient.h>      /* https://github.com/Links2004/arduinoWebSockets */
 #include <dsmr.h>                  /* https://github.com/matthijskooijman/arduino-dsmr */
 
-#define USE_WS_BRIDGE              true                      /* true = use a dsmr websocket bridge - false = use a dsmr smartmeter */
-
-const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* bridge adress */
-const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
-const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
-
 #include "wifisetup.h"
 #include "index_htm.h"
 #include "vandaag_htm.h"
@@ -23,6 +17,14 @@ const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 #else
 #include <SSD1306.h>               /* In same library as SH1106 */
 #endif
+
+#define USE_WS_BRIDGE              true                      /* true = use a dsmr websocket bridge - false = use a dsmr smartmeter */
+
+const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* bridge adress */
+const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
+const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
+
+
 
 #define  SAVE_TIME_MIN                 (1)              /* data save interval in minutes */
 
@@ -60,6 +62,12 @@ SH1106          oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 #else
 SSD1306         oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 #endif
+
+struct {
+  uint32_t low;
+  uint32_t high;
+  uint32_t gas;
+} current;
 
 time_t          bootTime;
 bool            oledFound{false};
@@ -178,13 +186,13 @@ static uint32_t average{0};
 static uint32_t numberOfSamples{0};
 
 void saveAverage(const tm& timeinfo) {
-  String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
-
   const String message {
     String(time(NULL)) + " " + String(average / numberOfSamples)
   };
 
   ws_events.textAll("electric_saved\n" + message);
+
+  String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
 
   File folder = SD.open(path);
   if (!folder && !SD.mkdir(path))
@@ -200,10 +208,18 @@ void saveAverage(const tm& timeinfo) {
 
   /* write a start header to the current log file if we just booted */
   static bool booted{true};
-  if (booted) {
-    const String startHeader{"#" + String(bootTime)};
 
-    ESP_LOGD(TAG, "writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
+  /* check if the file exists and if not we add the current totals on the first line */
+  if (booted || !SD.exists(path)) {
+    const String startHeader{
+      "#" +
+      String(bootTime) + " " +
+      current.low + " " +
+      current.high + " " +
+      current.gas
+    };
+
+    ESP_LOGI(TAG, "writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
 
     appendToFile(path.c_str(), startHeader.c_str());
     booted = false;
@@ -359,6 +375,11 @@ void process(const String& telegram) {
     uint32_t t2Start;
     uint32_t gasStart;
   } today;
+
+  current = {data.energy_delivered_tariff1.int_val(),
+             data.energy_delivered_tariff2.int_val(),
+             data.gas_delivered.int_val()
+            };
 
   /* out of range value to make sure the next check updates the first time */
   static uint8_t currentMonthDay{40};
