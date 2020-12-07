@@ -48,11 +48,13 @@ const IPAddress SUBNET(255, 255, 255, 0);                /* Usually 255,255,255,
 const IPAddress PRIMARY_DNS(192, 168, 0, 30);            /* Check in your router */
 const IPAddress SECONDARY_DNS(192, 168, 0, 50);          /* Check in your router */
 
+const char*     WS_RAW_URL = "/raw";
 const char*     WS_EVENTS_URL = "/events";
 
 WebSocketsClient ws_bridge;
-AsyncWebServer server(80);
-AsyncWebSocket ws_events(WS_EVENTS_URL);
+AsyncWebServer http_server(80);
+AsyncWebSocket ws_server_raw(WS_RAW_URL);
+AsyncWebSocket ws_server_events(WS_EVENTS_URL);
 HardwareSerial smartMeter(UART_NR);
 
 #if defined(SH1106_OLED)
@@ -136,8 +138,11 @@ void setup() {
   time(&bootTime);
 
   /* websocket setup */
-  ws_events.onEvent(ws_server_onEvent);
-  server.addHandler(&ws_events);
+  ws_server_raw.onEvent(ws_server_onEvent);
+  http_server.addHandler(&ws_server_raw);
+
+  ws_server_events.onEvent(ws_server_onEvent);
+  http_server.addHandler(&ws_server_events);
 
   /* webserver setup */
   static char modifiedDate[30];
@@ -148,7 +153,7 @@ void setup() {
 
   strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+  http_server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm_gz, index_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
@@ -156,7 +161,7 @@ void setup() {
     request->send(response);
   });
 
-  server.on("/vandaag", HTTP_GET, [](AsyncWebServerRequest * request) {
+  http_server.on("/vandaag", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, vandaag_htm_gz, vandaag_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
@@ -164,13 +169,13 @@ void setup() {
     request->send(response);
   });
 
-  server.serveStatic("/", SD, "/");
+  http_server.serveStatic("/", SD, "/");
 
-  server.onNotFound([](AsyncWebServerRequest * request) {
+  http_server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
   });
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
-  server.begin();
+  http_server.begin();
 
   if (USE_WS_BRIDGE)
     /* start listening on the websocket bridge */
@@ -192,7 +197,7 @@ void saveAverage(const tm& timeinfo) {
     String(time(NULL)) + " " + String(average / numberOfSamples)
   };
 
-  ws_events.textAll("electric_saved\n" + message);
+  ws_server_events.textAll("electric_saved\n" + message);
 
   String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
 
@@ -236,7 +241,8 @@ void saveAverage(const tm& timeinfo) {
 }
 
 void loop() {
-  ws_events.cleanupClients();
+  ws_server_raw.cleanupClients();
+  ws_server_events.cleanupClients();
 
   /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
   static struct tm now;
@@ -353,6 +359,9 @@ bool appendToFile(const char* path, const char* message) {
 }
 
 void process(const String& telegram) {
+
+  ws_server_raw.textAll(telegram);
+
   using decodedFields = ParsedData <
                         /* FixedValue */ energy_delivered_tariff1,
                         /* FixedValue */ energy_delivered_tariff2,
@@ -411,7 +420,7 @@ void process(const String& telegram) {
            (data.electricity_tariff.equals("0001")) ? "laag" : "hoog"
           );
 
-  ws_events.textAll(currentUseString);
+  ws_server_events.textAll(currentUseString);
 
   if (oledFound) {
     oled.clear();
