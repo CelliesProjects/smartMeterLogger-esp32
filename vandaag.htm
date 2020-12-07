@@ -158,7 +158,6 @@ if(window.location.hostname)ws_host+=window.location.hostname+"/events";
 else ws_host+=debugip+"/events";
 
 const tm=new Date;
-var dataUrl=url+"/"+tm.getFullYear()+"/"+(tm.getMonth()+1)+"/"+tm.getDate()+".log";
 var currentDate=tm.getDate();
 var maxrange=500; //in Watts
 var lowestUse=10000000;
@@ -166,10 +165,15 @@ var hightime;
 var highestUse=0;
 var lowtime;
 
-/* connect to serverpath and wait for trigger serverResponse */
+
+/* connect to serverpath and wait for the correct serverResponse */
 const serverpath="/events";
-const serverResponse="electric_saved\n";
+const serverResponseElectricSaved ="electric_saved\n";
 const serverResponseCurrent="current\n";
+
+function currentFileURL() {
+  return url+"/"+tm.getFullYear()+"/"+(tm.getMonth()+1)+"/"+tm.getDate()+".log";
+}
 
 function ready(callbackFunction){
   if(document.readyState != 'loading')
@@ -180,10 +184,9 @@ function ready(callbackFunction){
 
 function checkDayChange(){
   const now = new Date;
-  if (now.getDate()!=currentDate) {
-    dataUrl=url+"/"+now.getFullYear()+"/"+(now.getMonth()+1)+"/"+now.getDate()+".log";
-    currentDate=now.getDate();
-    getData(dataUrl,drawGraph);
+  if (now.getDate() != currentDate && (1 < now.getMinute()) && (1 < now.getSeconds())) {
+    currentDate = now.getDate();
+    getData(currentFileURL(), drawGraph);
   }
 }
 
@@ -191,15 +194,15 @@ var savedData;
 
 ready(event => {
   drawBackground();
-  getData(dataUrl,drawGraph);
-  var ws=new ReconnectingWebSocket(ws_host,null,{debug:false,reconnectInterval:3000});
-  ws.onopen=function(event){console.log('[WebSocket] Connected');}
-  ws.onclose=function(event){console.log('[WebSocket] Connection died, code='+event.code+' reason='+event.reason);}
-  ws.onerror=function(error){console.log('[WebSocket] Error: '+error.message);}
+  getData(currentFileURL(), drawGraph);
+  var ws = new ReconnectingWebSocket(ws_host, null, {debug:false, reconnectInterval:3000});
+  ws.onopen = function(event){console.log('[WebSocket] Connected');}
+  ws.onclose = function(event){console.log('[WebSocket] Connection died, code=' + event.code + ' reason=' + event.reason);}
+  ws.onerror = function(error){console.log('[WebSocket] Error: ' + error.message);}
   ws.onmessage=function(e){
-    if(e.data.startsWith(serverResponse)) {
+    if(e.data.startsWith(serverResponseElectricSaved)) {
       var item = e.data.substring(e.data.indexOf('\n'));
-      savedData+=item;
+      savedData += item;
       drawGraphItem(item);
       updateFooter();
     }
@@ -212,8 +215,8 @@ ready(event => {
 })
 
 function drawGraphItem(item){
-  const itemdata=item.split(' ');
-  const tm=new Date(itemdata[0]*1000);
+  const itemdata = item.split(' ');
+  const tm = new Date(itemdata[0]*1000);
   if (parseInt(itemdata[1]) < lowestUse) {
     lowestUse = parseInt(itemdata[1]);
     lowtime = tm;
@@ -222,16 +225,16 @@ function drawGraphItem(item){
     highestUse = parseInt(itemdata[1]);
     hightime = tm;
   }
-  const secondstoday=tm.getSeconds()+tm.getMinutes()*60+tm.getHours()*3600;
-  const xpos=map(secondstoday-30,0,86400,0,1440);
+  const secondstoday = tm.getSeconds()+tm.getMinutes() * 60 + tm.getHours() * 3600;
+  const xpos = map(secondstoday-30, 0, 86400, 0, 1440);
   const canvas = document.getElementById('dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.beginPath();
   ctx.lineWidth = 1;
-  ctx.strokeStyle='white';
-  ctx.moveTo(xpos,canvas.height);
-  const ypos=map(itemdata[1],0,maxrange,canvas.height,0);
-  ctx.lineTo(xpos,ypos);
+  ctx.strokeStyle = 'white';
+  ctx.moveTo(xpos, canvas.height);
+  const ypos = map(itemdata[1], 0, maxrange, canvas.height, 0);
+  ctx.lineTo(xpos, ypos);
   ctx.stroke();
 }
 
@@ -239,7 +242,7 @@ function getData(url,callBack) {
   var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
-        savedData=this.responseText;
+        savedData = this.responseText;
         callBack(this.responseText);
     }
   }
@@ -252,7 +255,7 @@ function map(x,in_min,in_max,out_min,out_max){
   return(x-in_min)*(out_max-out_min)/(in_max-in_min)+out_min;
 }
 
-var reboots=0;
+var reboots;
 
 function drawBackground() {
   const canvas = document.getElementById('background');
@@ -265,27 +268,27 @@ function drawBackground() {
   ctx.fillStyle = 'yellow';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const step=canvas.height/10;
-  for(vgrid=canvas.height;vgrid>=0;vgrid-=step){
+  const step = canvas.height/10;
+  for(vgrid = canvas.height; vgrid>=0; vgrid-=step){
     ctx.beginPath();
-    ctx.moveTo(0,vgrid);
-    ctx.lineTo(1440,vgrid);
+    ctx.moveTo(0, vgrid);
+    ctx.lineTo(1440, vgrid);
     ctx.stroke();
-    const wattage=map(vgrid,canvas.height,0,0,maxrange).toString()+"W";
+    const wattage = map(vgrid, canvas.height, 0, 0, maxrange).toString() + "W";
     ctx.fillText(wattage, 100, vgrid);
     ctx.fillText(wattage, 1440-100, vgrid);
   }
   ctx.fillStyle = 'white'
-  for(h=1;h<24;h++){
-    const xpos=map(h,0,24,0,1440);
+  for(h = 1;h < 24; h++){
+    const xpos = map(h,0,24,0,1440);
     ctx.beginPath();
     ctx.lineWidth = .7;
-    ctx.moveTo(xpos,0);
-    ctx.lineTo(xpos,canvas.height);
+    ctx.moveTo(xpos, 0);
+    ctx.lineTo(xpos, canvas.height);
     ctx.stroke();
     ctx.fillText(h, xpos, 25);
-    ctx.fillText(h, xpos, (canvas.height/2)-25);
-    ctx.fillText(h, xpos, canvas.height-25);
+    ctx.fillText(h, xpos, (canvas.height / 2) - 25);
+    ctx.fillText(h, xpos, canvas.height - 25);
   }
 }
 
@@ -295,37 +298,38 @@ function drawGraph(rawdata){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
-  reboots=0;
+  reboots = 0;
+  //raw (file) data always starts with a # line which if it is the first item in the file can be discarded
+  if (rawdata.startsWith("#")) rawdata = rawdata.substring(rawdata.indexOf('\n') + 1); 
   rawdata.split('\n').forEach(function(item){
     if (item.startsWith('#')) {
-      const tm=new Date(item.substring(1,item.indexOf(" "))*1000);
-      const reboottime=tm.getSeconds()+tm.getMinutes()*60+tm.getHours()*3600;
-      const xpos=map(reboottime,0,86400,0,1440);
+      const tm = new Date(item.substring(1, item.indexOf(" ")) * 1000);
+      const reboottime = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
+      const xpos = map(reboottime,0,86400,0,1440);
       ctx.beginPath();
       ctx.lineWidth = 2;
-      ctx.strokeStyle="red";
-      ctx.moveTo(xpos,0);
-      ctx.lineTo(xpos,canvas.height);
+      ctx.strokeStyle = "red";
+      ctx.moveTo(xpos, 0);
+      ctx.lineTo(xpos, canvas.height);
       reboots++;
       ctx.stroke();
-    } else {
+    } else
       drawGraphItem(item);
-    }
   });
   updateFooter();
 };
 
 
 function updateFooter(){
-  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',/* hour: '2-digit', minute: '2-digit', second: '2-digit',*/ hour12: false};
+  var options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
   var formattedDate = new Date(lowtime).toLocaleDateString('nl-NL', options);
   const date = document.getElementById('date');
   date.innerHTML = formattedDate;
+  var options = {hour: '2-digit', minute: '2-digit', hour12: false};
+  var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
+  html += '<span class="footer">laagste verbruik ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
+  html += '<span class="footer">hoogste verbruik ' + highestUse + 'W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
   const overview = document.getElementById('overview');
-  var html;
-  if (reboots) html = '<span class="footer">' +reboots + ' reboot(s)</span>';
-  html += '<span class="footer">laagste verbruik ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString() + '</span>';
-  html += '<span class="footer">hoogste verbruik ' + highestUse + 'W om ' + hightime.toLocaleTimeString() + '</span>';
   overview.innerHTML = html;
 }
 
