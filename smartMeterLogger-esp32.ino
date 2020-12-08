@@ -147,9 +147,18 @@ void setup() {
   /* webserver setup */
   static char modifiedDate[30];
   static const char* HTML_MIMETYPE{"text/html"};
+
   static const char* HEADER_LASTMODIFIED{"Last-Modified"};
+
   static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
   static const char* CONTENT_ENCODING_VALUE{"gzip"};
+
+  static const char* SVG_HEADER = "image/svg+xml";
+  static const char* VARY_HEADER_STR = "Vary";
+  static const char* ACCEPTENCODING_HEADER_STR = "Accept-Encoding";
+
+  static const char* previousicon = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
+  static const char* nexticon = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>)====";
 
   strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
 
@@ -166,6 +175,19 @@ void setup() {
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, vandaag_htm_gz, vandaag_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
     response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_VALUE);
+    request->send(response);
+  });
+
+  /* icons from https://material.io/resources/icons/?icon=navigate_next&style=baseline */
+  http_server.on("/previousicon.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
+    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_HEADER, previousicon);
+    response->addHeader(VARY_HEADER_STR, ACCEPTENCODING_HEADER_STR);
+    request->send(response);
+  });
+
+  http_server.on("/nexticon.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
+    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_HEADER, nexticon);
+    response->addHeader(VARY_HEADER_STR, ACCEPTENCODING_HEADER_STR);
     request->send(response);
   });
 
