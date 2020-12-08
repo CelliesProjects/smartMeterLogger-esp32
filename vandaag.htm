@@ -67,15 +67,17 @@ h2{
   width:25%;
   font-size:25px;
 }
-#displaytesmal{
+#nographics{
   line-height:200px;
   display:none;
+  font-size:100px;
 }
 @media only screen and (max-width: 600px) {
-  #scale,#graphContainer,#dayGraph,#background{
+  #current, #scale, #graphContainer, #dayGraph, #background{
     display: none;
   }
-  #displaytesmal{display:block;}
+  #nographics{display: block;}
+  #header #current{display: none;}
 }
 @media only screen and (min-width: 600px) {
   #graphContainer,#dayGraph,#background{
@@ -146,7 +148,7 @@ h2{
   <input type="button" class="rangebutton" value="2000W" onclick="setRange(2000)">
   <input type="button" class="rangebutton" value="4000W" onclick="setRange(4000)">
 </div>
-<div id="displaytesmal">Beeldscherm is te smal voor grafieken</div>
+<div id="nographics"></div>
 <div id="overview"></div>
 <script>
 var url="http://";
@@ -162,6 +164,7 @@ var lowestUse=10000000;
 var hightime;
 var highestUse=0;
 var lowtime;
+var savedData;
 
 const serverpath="/events";
 const serverResponseElectricSaved ="electric_saved\n";
@@ -190,10 +193,9 @@ function checkDayChange(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     currentDate = now.getDate();
     updateDate(now);
+    savedData = '';
   }
 }
-
-var savedData;
 
 ready(event => {
   drawBackground();
@@ -218,6 +220,8 @@ ready(event => {
     if (event.data.startsWith(serverResponseCurrent)) {
       const current = document.getElementById('current');
       current.innerHTML = "huidig verbruik: " + event.data.split('\n')[1]+"W";
+      const nographics = document.getElementById('nographics');
+      nographics.innerHTML = event.data.split('\n')[1]+"W";
     }
   };
   var dateTimer = setInterval(checkDayChange, 1000);
@@ -297,7 +301,6 @@ function drawBackground() {
     ctx.lineTo(xpos, canvas.height);
     ctx.stroke();
     ctx.fillText(h, xpos, 25);
-    //ctx.fillText(h, xpos, (canvas.height / 2) - 25);
     ctx.fillText(h, xpos, canvas.height - 25);
   }
 }
@@ -339,8 +342,8 @@ function updateDate(tm){
 function updateFooter(){
   var options = {hour: '2-digit', minute: '2-digit', hour12: false};
   var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
-  html += '<span class="footer">laagste verbruik ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
-  html += '<span class="footer">hoogste verbruik ' + highestUse + 'W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
+  html += '<span class="footer">laagste verbruik: ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
+  html += '<span class="footer">hoogste verbruik: ' + highestUse + 'W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
   const overview = document.getElementById('overview');
   overview.innerHTML = html;
   updateDate(lowtime);
