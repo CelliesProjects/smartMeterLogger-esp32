@@ -169,7 +169,7 @@ void setup() {
     request->send(response);
   });
 
-  http_server.serveStatic("/", SD, "/");
+  http_server.serveStatic("/", SD, "/").setCacheControl("no-store, no-cache, must-revalidate, max-age=0");
 
   http_server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
