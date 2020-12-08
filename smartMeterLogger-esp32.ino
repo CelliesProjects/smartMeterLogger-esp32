@@ -153,13 +153,6 @@ void setup() {
   static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
   static const char* CONTENT_ENCODING_VALUE{"gzip"};
 
-  static const char* SVG_HEADER = "image/svg+xml";
-  static const char* VARY_HEADER_STR = "Vary";
-  static const char* ACCEPTENCODING_HEADER_STR = "Accept-Encoding";
-
-  static const char* previousicon = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
-  static const char* nexticon = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>)====";
-
   strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
 
   http_server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -179,15 +172,27 @@ void setup() {
   });
 
   /* icons from https://material.io/resources/icons/?icon=navigate_next&style=baseline */
-  http_server.on("/previousicon.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
-    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_HEADER, previousicon);
-    response->addHeader(VARY_HEADER_STR, ACCEPTENCODING_HEADER_STR);
+  static const char* SVG_MIMETYPE{"image/svg+xml"};
+
+  static const char* ICON_PREV = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
+  static const char* ICON_NEXT = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>)====";
+
+  static const char* ACCEPT_ENCODING_HEADER{"Accept-Encoding"};
+  static const char* ACCEPT_ENCODING_VALUE{"Vary"};
+
+  http_server.on("/previous.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
+    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_PREV);
+    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+    response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
     request->send(response);
   });
 
-  http_server.on("/nexticon.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
-    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_HEADER, nexticon);
-    response->addHeader(VARY_HEADER_STR, ACCEPTENCODING_HEADER_STR);
+  http_server.on("/next.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
+    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_NEXT);
+    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+    response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
     request->send(response);
   });
 
@@ -200,10 +205,8 @@ void setup() {
   http_server.begin();
 
   if (USE_WS_BRIDGE)
-    /* start listening on the websocket bridge */
     connectToWebSocketBridge();
   else {
-    /* start listening on the smartmeter */
     smartMeter.begin(BAUDRATE, SERIAL_8N1, RXD_PIN);
     Serial.printf("listening for smartMeter RXD_PIN = %i baudrate = %i\n", RXD_PIN, BAUDRATE);
   }
@@ -235,10 +238,8 @@ void saveAverage(const tm& timeinfo) {
 
   path.concat("/" + String(timeinfo.tm_mday) + ".log");   /* add the filename to the path */
 
-  /* write a start header to the current log file if we just booted */
   static bool booted{true};
 
-  /* check if the file exists and if not we add the current totals on the first line */
   if (booted || !SD.exists(path)) {
     const String startHeader{
       "#" +
@@ -266,7 +267,6 @@ void loop() {
   ws_server_raw.cleanupClients();
   ws_server_events.cleanupClients();
 
-  /* save the average power consumption to SD every 'SAVE_TIME_MIN' minutes */
   static struct tm now;
   getLocalTime(&now);
   if ((numberOfSamples > 1) && !(now.tm_min % SAVE_TIME_MIN) && (59 == now.tm_sec))
