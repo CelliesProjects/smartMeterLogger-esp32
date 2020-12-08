@@ -5,7 +5,7 @@
 const debugip="192.168.0.107";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
-<meta name="viewport" content="minimal-ui,width=device-width,initial-scale=1.0,user-scalable=no" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <link rel="icon" href="data:;base64,iVBORw0KGgo="><!--prevent favicon requests-->
 <link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto" as="font" crossorigin="anonymous"> <!-- force loading of font - see https://stackoverflow.com/questions/2756575/drawing-text-to-canvas-with-font-face-does-not-work-at-the-first-time/61809834#61809834  and https://developer.mozilla.org/en-US/docs/Web/HTML/Preloading_content -->
 <title>smartMeterLogger vandaag</title>
@@ -54,10 +54,10 @@ h2{
   left:0;
 }
 #background{
-  opacity:0.7;
+  opacity:0.5;
 }
 #dayGraph{
-  opacity:0.5;
+  opacity:0.6;
 }
 #scale{
   display:flex;
@@ -157,22 +157,19 @@ var ws_host="ws://";
 if(window.location.hostname)ws_host+=window.location.hostname+"/events";
 else ws_host+=debugip+"/events";
 
-const tm=new Date;
-var currentDate=tm.getDate();
 var maxrange=500; //in Watts
 var lowestUse=10000000;
 var hightime;
 var highestUse=0;
 var lowtime;
 
-
-/* connect to serverpath and wait for the correct serverResponse */
 const serverpath="/events";
 const serverResponseElectricSaved ="electric_saved\n";
 const serverResponseCurrent="current\n";
 
 function currentFileURL() {
-  return url+"/"+tm.getFullYear()+"/"+(tm.getMonth()+1)+"/"+tm.getDate()+".log";
+  const now = new Date;
+  return url+"/"+now.getFullYear()+"/"+(now.getMonth()+1)+"/"+now.getDate()+".log";
 }
 
 function ready(callbackFunction){
@@ -182,11 +179,17 @@ function ready(callbackFunction){
     document.addEventListener("DOMContentLoaded", callbackFunction);
 }
 
+const tm=new Date;
+var currentDate=tm.getDate();
+
 function checkDayChange(){
   const now = new Date;
-  if (now.getDate() != currentDate && (1 < now.getMinute()) && (1 < now.getSeconds())) {
+  if (now.getDate() != currentDate) {
+    const canvas = document.getElementById('dayGraph');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     currentDate = now.getDate();
-    getData(currentFileURL(), drawGraph);
+    updateDate(now);
   }
 }
 
@@ -194,24 +197,30 @@ var savedData;
 
 ready(event => {
   drawBackground();
-  getData(currentFileURL(), drawGraph);
   var ws = new ReconnectingWebSocket(ws_host, null, {debug:false, reconnectInterval:3000});
-  ws.onopen = function(event){console.log('[WebSocket] Connected');}
-  ws.onclose = function(event){console.log('[WebSocket] Connection died, code=' + event.code + ' reason=' + event.reason);}
-  ws.onerror = function(error){console.log('[WebSocket] Error: ' + error.message);}
-  ws.onmessage=function(e){
-    if(e.data.startsWith(serverResponseElectricSaved)) {
-      var item = e.data.substring(e.data.indexOf('\n'));
+  ws.onopen = function(){
+    console.log('[WebSocket] Connected');
+    getData(currentFileURL(), drawGraph);
+  }
+  ws.onclose = function(event){
+    console.log('[WebSocket] Connection died, code=' + event.code + ' reason=' + event.reason);
+  }
+  ws.onerror = function(error){
+    console.log('[WebSocket] Error: ' + error.message);
+  }
+  ws.onmessage=function(event){
+    if(event.data.startsWith(serverResponseElectricSaved)) {
+      const item = event.data.substring(event.data.indexOf('\n'));
       savedData += item;
       drawGraphItem(item);
       updateFooter();
     }
-    if (e.data.startsWith(serverResponseCurrent)) {
+    if (event.data.startsWith(serverResponseCurrent)) {
       const current = document.getElementById('current');
-      current.innerHTML = "huidig verbruik: " + e.data.split('\n')[1]+"W";
+      current.innerHTML = "huidig verbruik: " + event.data.split('\n')[1]+"W";
     }
   };
-  var dateTimer = setInterval(checkDayChange, 5000);
+  var dateTimer = setInterval(checkDayChange, 1000);
 })
 
 function drawGraphItem(item){
@@ -275,10 +284,11 @@ function drawBackground() {
     ctx.lineTo(1440, vgrid);
     ctx.stroke();
     const wattage = map(vgrid, canvas.height, 0, 0, maxrange).toString() + "W";
-    ctx.fillText(wattage, 100, vgrid);
-    ctx.fillText(wattage, 1440-100, vgrid);
+    ctx.fillText(wattage, 60, vgrid);
+    ctx.fillText(wattage, 1440 - 60, vgrid);
   }
-  ctx.fillStyle = 'white'
+  ctx.fillStyle = 'lightblue'
+  ctx.strokeStyle = 'lightblue';
   for(h = 1;h < 24; h++){
     const xpos = map(h,0,24,0,1440);
     ctx.beginPath();
@@ -287,7 +297,7 @@ function drawBackground() {
     ctx.lineTo(xpos, canvas.height);
     ctx.stroke();
     ctx.fillText(h, xpos, 25);
-    ctx.fillText(h, xpos, (canvas.height / 2) - 25);
+    //ctx.fillText(h, xpos, (canvas.height / 2) - 25);
     ctx.fillText(h, xpos, canvas.height - 25);
   }
 }
@@ -319,18 +329,21 @@ function drawGraph(rawdata){
   updateFooter();
 };
 
-
-function updateFooter(){
+function updateDate(tm){
   var options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-  var formattedDate = new Date(lowtime).toLocaleDateString('nl-NL', options);
+  var formattedDate = tm.toLocaleDateString('nl-NL', options);
   const date = document.getElementById('date');
   date.innerHTML = formattedDate;
+}
+
+function updateFooter(){
   var options = {hour: '2-digit', minute: '2-digit', hour12: false};
   var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
   html += '<span class="footer">laagste verbruik ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
   html += '<span class="footer">hoogste verbruik ' + highestUse + 'W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
   const overview = document.getElementById('overview');
   overview.innerHTML = html;
+  updateDate(lowtime);
 }
 
 function setRange(range){
