@@ -152,19 +152,20 @@ h2{
 <div id="overview"></div>
 <script>
 var url="http://";
-if (window.location.hostname)url+=window.location.hostname;
-else url+=debugip;
+if (window.location.hostname)url += window.location.hostname;
+else url += debugip;
 
 var ws_host="ws://";
-if(window.location.hostname)ws_host+=window.location.hostname+"/events";
-else ws_host+=debugip+"/events";
+if(window.location.hostname) ws_host += window.location.hostname + "/events";
+else ws_host += debugip + "/events";
 
-var maxrange=500; //in Watts
-var lowestUse=10000000;
+var maxrange = 500; //in Watts
+var lowestUse = 10000000;
 var hightime;
-var highestUse=0;
+var highestUse = 0;
 var lowtime;
 var savedData;
+var currentDayOfMonth;
 
 const serverpath="/events";
 const serverResponseElectricSaved ="electric_saved\n";
@@ -175,6 +176,21 @@ function currentFileURL() {
   return url+"/"+now.getFullYear()+"/"+(now.getMonth()+1)+"/"+now.getDate()+".log";
 }
 
+function checkDayChange(){
+  const now = new Date;
+  if (now.getDate() != currentDayOfMonth) {
+    updateDate(now);
+    //updateFooter();
+    savedData = '';
+    highestUse = 0;
+    lowestUse = 10000000;
+    currentDayOfMonth = now.getDate();
+    const canvas = document.getElementById('dayGraph');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
 function ready(callbackFunction){
   if(document.readyState != 'loading')
     callbackFunction(event);
@@ -182,26 +198,9 @@ function ready(callbackFunction){
     document.addEventListener("DOMContentLoaded", callbackFunction);
 }
 
-const tm=new Date;
-var currentDate=tm.getDate();
-
-function checkDayChange(){
-  const now = new Date;
-  if (now.getDate() != currentDate) {
-    const canvas = document.getElementById('dayGraph');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    currentDate = now.getDate();
-    updateDate(now);
-    savedData = '';
-  }
-}
-
 ready(event => {
-  drawBackground();
   var ws = new ReconnectingWebSocket(ws_host, null, {debug:false, reconnectInterval:3000});
   ws.onopen = function(){
-    console.log('[WebSocket] Connected');
     getData(currentFileURL(), drawGraph);
   }
   ws.onclose = function(event){
@@ -219,11 +218,15 @@ ready(event => {
     }
     if (event.data.startsWith(serverResponseCurrent)) {
       const current = document.getElementById('current');
-      current.innerHTML = "huidig verbruik: " + event.data.split('\n')[1]+"W";
+      current.innerHTML = "huidig verbruik: " + event.data.split('\n')[1] + "W";
       const nographics = document.getElementById('nographics');
       nographics.innerHTML = event.data.split('\n')[1]+"W";
     }
   };
+  drawBackground();
+  const tm=new Date;
+  currentDayOfMonth=tm.getDate();
+  updateDate(tm);
   var dateTimer = setInterval(checkDayChange, 1000);
 })
 
@@ -251,7 +254,7 @@ function drawGraphItem(item){
   ctx.stroke();
 }
 
-function getData(url,callBack) {
+function getData(url, callBack) {
   var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
@@ -262,6 +265,22 @@ function getData(url,callBack) {
   xhttp.open("GET", url, true);
   xhttp.send();
   return;
+}
+
+function updateDate(tm){
+  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+  const formattedDate = tm.toLocaleDateString('nl-NL', options);
+  const date = document.getElementById('date');
+  date.innerHTML = formattedDate;
+}
+
+function updateFooter(){
+  const options = {hour: '2-digit', minute: '2-digit', hour12: false};
+  var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
+  html += '<span class="footer">laagste verbruik: ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
+  html += '<span class="footer">hoogste verbruik: ' + highestUse + 'W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
+  const overview = document.getElementById('overview');
+  overview.innerHTML = html;
 }
 
 function map(x,in_min,in_max,out_min,out_max){
@@ -331,23 +350,6 @@ function drawGraph(rawdata){
   });
   updateFooter();
 };
-
-function updateDate(tm){
-  var options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-  var formattedDate = tm.toLocaleDateString('nl-NL', options);
-  const date = document.getElementById('date');
-  date.innerHTML = formattedDate;
-}
-
-function updateFooter(){
-  var options = {hour: '2-digit', minute: '2-digit', hour12: false};
-  var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
-  html += '<span class="footer">laagste verbruik: ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
-  html += '<span class="footer">hoogste verbruik: ' + highestUse + 'W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
-  const overview = document.getElementById('overview');
-  overview.innerHTML = html;
-  updateDate(lowtime);
-}
 
 function setRange(range){
   maxrange=range;
