@@ -269,16 +269,16 @@ void loop() {
 
   static struct tm now;
   getLocalTime(&now);
-  if ((numberOfSamples > 1) && !(now.tm_min % SAVE_TIME_MIN) && (59 == now.tm_sec))
+  if ((59 == now.tm_sec) && !(now.tm_min % SAVE_TIME_MIN) && (numberOfSamples > 1))
     saveAverage(now);
 
   if (USE_WS_BRIDGE) {
     ws_bridge.loop();
   }
   else {
-    static String telegram{""};
     while (smartMeter.available()) {
       const char incomingChar = smartMeter.read();
+      static String telegram{""};
       telegram.concat(incomingChar);
       if ('!' == incomingChar) {
         /* checksum reached, wait for and read 6 more bytes then the telegram is received completely - see DSMR 5.0.2 ¶ 6.2 */
