@@ -151,11 +151,11 @@ h2{
 <div id="nographics"></div>
 <div id="overview"></div>
 <script>
-var url="http://";
-if (window.location.hostname)url += window.location.hostname;
-else url += debugip;
+var http_host = "http://";
+if (window.location.hostname) http_host += window.location.hostname;
+else http_host += debugip;
 
-var ws_host="ws://";
+var ws_host = "ws://";
 if(window.location.hostname) ws_host += window.location.hostname + "/events";
 else ws_host += debugip + "/events";
 
@@ -173,14 +173,13 @@ const serverResponseCurrent="current\n";
 
 function currentFileURL() {
   const now = new Date;
-  return url+"/"+now.getFullYear()+"/"+(now.getMonth()+1)+"/"+now.getDate()+".log";
+  return http_host + "/" + now.getFullYear() + "/" + (now.getMonth() + 1) + "/" + now.getDate() + ".log";
 }
 
 function checkDayChange(){
   const now = new Date;
   if (now.getDate() != currentDayOfMonth) {
     updateDate(now);
-    //updateFooter();
     savedData = '';
     highestUse = 0;
     lowestUse = 10000000;
@@ -217,10 +216,8 @@ ready(event => {
       updateFooter();
     }
     if (event.data.startsWith(serverResponseCurrent)) {
-      const current = document.getElementById('current');
-      current.innerHTML = "huidig verbruik: " + event.data.split('\n')[1] + "W";
-      const nographics = document.getElementById('nographics');
-      nographics.innerHTML = event.data.split('\n')[1]+"W";
+      document.getElementById('current').innerHTML = "huidig verbruik: " + event.data.split('\n')[1] + "W";
+      document.getElementById('nographics').innerHTML = event.data.split('\n')[1] + "W";
     }
   };
   drawBackground();
@@ -269,9 +266,7 @@ function getData(url, callBack) {
 
 function updateDate(tm){
   const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-  const formattedDate = tm.toLocaleDateString('nl-NL', options);
-  const date = document.getElementById('date');
-  date.innerHTML = formattedDate;
+  document.getElementById('date').innerHTML = tm.toLocaleDateString('nl-NL', options);
 }
 
 function updateFooter(){
@@ -279,12 +274,11 @@ function updateFooter(){
   var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
   html += '<span class="footer">laagste verbruik: ' + lowestUse + 'W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
   html += '<span class="footer">hoogste verbruik: ' + highestUse + 'W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
-  const overview = document.getElementById('overview');
-  overview.innerHTML = html;
+  document.getElementById('overview').innerHTML = html;
 }
 
 function map(x,in_min,in_max,out_min,out_max){
-  return(x-in_min)*(out_max-out_min)/(in_max-in_min)+out_min;
+  return(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 var reboots;
@@ -332,7 +326,7 @@ function drawGraph(rawdata){
   ctx.setLineDash([]);
   reboots = 0;
   //raw (file) data always starts with a # line which if it is the first item in the file can be discarded
-  if (rawdata.startsWith("#")) rawdata = rawdata.substring(rawdata.indexOf('\n') + 1); 
+  if (rawdata.startsWith("#")) rawdata = rawdata.substring(rawdata.indexOf('\n') + 1);
   rawdata.split('\n').forEach(function(item){
     if (item.startsWith('#')) {
       const tm = new Date(item.substring(1, item.indexOf(" ")) * 1000);
