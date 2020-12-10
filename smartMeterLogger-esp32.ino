@@ -81,7 +81,6 @@ static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebS
 void connectToWebSocketBridge() {
   ws_bridge.onEvent(ws_bridge_onEvents);
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
-  //ws_bridge.enableHeartbeat(500, 300, 4);
 }
 
 void setup() {
@@ -146,14 +145,14 @@ void setup() {
 
   /* webserver setup */
   static char modifiedDate[30];
+  strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
+
   static const char* HTML_MIMETYPE{"text/html"};
 
   static const char* HEADER_LASTMODIFIED{"Last-Modified"};
 
   static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
   static const char* CONTENT_ENCODING_VALUE{"gzip"};
-
-  strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
 
   http_server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
