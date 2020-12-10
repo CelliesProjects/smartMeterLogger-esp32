@@ -27,10 +27,7 @@ html,body{
   text-align:center;
   font-family:'Roboto',sans-serif;
   overflow:hidden;
-}
-a{
-  text-decoration:none;
-  color:antiquewhite;
+  font-size:20px;
 }
 .noselect{
   -webkit-touch-callout:none; /* iOS Safari */
@@ -41,56 +38,60 @@ a{
             user-select:none; /* Non-prefixed version,currently
                                   supported by Chrome and Opera */
 }
-#currentUse{
-  font-size:80px;
+#title{
+  font-size:15px;
+  color:yellow;
 }
-#lowUsed,#highUsed,#gasUsed{
-  font-size:20px;
-}
-.useVal{
-  white-space:nowrap;
-  margin:0 15px;
+a, span{
   display:inline-block;
+  white-space:nowrap;
+  margin:5px 20px;
+}
+a{
+  text-decoration:none;
+  color:antiquewhite;
 }
 </style>
 </head>
 <body class="noselect">
-  <h2 id="header">huidig tarief:&nbsp;&nbsp;<span id="tariff">onbekend</span></h2>
-  <a href="vandaag"><div id="currentUse"></div></a>
-  <div id="totals"><p id="lowUsed"></p><p id="highUsed"></p><p id="gasUsed"></p></div>
+  <p id="title">smartMeterLogger-esp32</p>
+  <p class="name">huidig tarief:<span id="tariff" class="value">onbekend</span></p
+  <p class="name">huidig verbruik:<span id="currentUse" class="value"></span></p>
+  <div id="total">
+    <p id="lowUsed"></p>
+    <p id="highUsed"></p>
+    <p id="gasUsed"></p>
+  </div>
+  <a href="/vandaag">klik hier voor de grafiek van vandaag</a>
 <script>
-var url="http://";
-if (window.location.hostname)url+=window.location.hostname;
-else url+=debugip;
-var ws_host="ws://";
-if(window.location.hostname)ws_host+=window.location.hostname+"/events";
-else ws_host+=debugip+"/events";
+var url = "http://";
+if (window.location.hostname) url += window.location.hostname;
+else url += debugip;
+
+var ws_host = "ws://";
+if (window.location.hostname) ws_host += window.location.hostname + "/events";
+else ws_host += debugip + "/events";
 
 function ready(callbackFunction){
-  if(document.readyState != 'loading')
+  if (document.readyState != 'loading')
     callbackFunction(event);
   else
     document.addEventListener("DOMContentLoaded", callbackFunction);
 }
 ready(event => {
-  var ws=new ReconnectingWebSocket(ws_host,null,{debug:false,reconnectInterval:3000});
-  ws.onmessage=function(e){
-    if(!e.data.startsWith('current\n'))return;
-    var dsmr = e.data.substring(e.data.indexOf('\n')+1).split('\n');
-    var currentUse = document.getElementById('currentUse');
-    currentUse.innerHTML = dsmr[0]+"W";
-    var lowUsed = document.getElementById('lowUsed');
-    lowUsed.innerHTML = '<span class="useVal">totaal laag: '+(dsmr[1]/1000.0).toFixed(3).replace(".", ",")+' kWh</span><span class="useVal">vandaag: '+(dsmr[4]/1000.0).toFixed(3).replace(".", ",")+' kWh</span>';
-    var highUsed = document.getElementById('highUsed');
-    highUsed.innerHTML = '<span class="useVal">totaal hoog: '+(dsmr[2]/1000.0).toFixed(3).replace(".", ",")+' kWh</span><span class="useVal">vandaag: '+(dsmr[5]/1000.0).toFixed(3).replace(".", ",")+' kWh</span>';
-    var gasUsed = document.getElementById('gasUsed');
-    gasUsed.innerHTML = '<span class="useVal">totaal gas: '+(dsmr[3]/1000.0).toFixed(3).replace(".", ",")+' m³</span><span class="useVal">vandaag: '+(dsmr[6]/1000.0).toFixed(3).replace(".", ",")+' m³</span>';
-    var tariff = document.getElementById('tariff');
-    tariff.innerHTML = dsmr[7];
+  var ws = new ReconnectingWebSocket(ws_host, null, {debug:false, reconnectInterval:3500});
+  ws.onmessage = function(e){
+    if (!e.data.startsWith('current\n')) return;
+    var dsmr = e.data.substring(e.data.indexOf('\n') + 1).split('\n');
+    document.getElementById('currentUse').innerHTML = dsmr[0] + " W";
+    document.getElementById('lowUsed').innerHTML = '<span>totaal laag: ' + (dsmr[1] / 1000.0).toFixed(1).replace(".", ",") + ' kWh</span><span>vandaag: ' + (dsmr[4] / 1000.0).toFixed(3).replace(".", ",") + ' kWh</span>';
+    document.getElementById('highUsed').innerHTML = '<span>totaal hoog: ' + (dsmr[2] / 1000.0).toFixed(1).replace(".", ",") + ' kWh</span><span>vandaag: ' + (dsmr[5] / 1000.0).toFixed(3).replace(".", ",") + ' kWh</span>';
+    document.getElementById('gasUsed').innerHTML = '<span>totaal gas: ' + (dsmr[3] / 1000.0).toFixed(1).replace(".", ",") + ' m³</span><span>vandaag: ' + (dsmr[6] / 1000.0).toFixed(3).replace(".", ",") + ' m³</span>';
+    document.getElementById('tariff').innerHTML = dsmr[7];
   };
-  ws.onopen=function(event){console.log('[WebSocket] Connected');}
-  ws.onclose=function(event){console.log('[WebSocket] Connection died, code='+event.code+' reason='+event.reason);}
-  ws.onerror=function(error){console.log('[WebSocket] '+ws_host+' Error: '+error.message);}
+  ws.onopen = function(){console.log('[WebSocket] Connected -> ' + ws_host);}
+  ws.onclose = function(event){console.log('[WebSocket] Connection died, code='  + event.code + ' reason=' + event.reason);}
+  ws.onerror  =function(error){console.log('[WebSocket] ' + ws_host + ' Error: ' + error.message);}
 });
 </script>
 </body>
