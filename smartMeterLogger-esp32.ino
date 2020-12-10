@@ -154,6 +154,10 @@ void setup() {
   static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
   static const char* CONTENT_ENCODING_VALUE{"gzip"};
 
+  http_server.on("/robots.txt", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(200, HTML_MIMETYPE, "User-agent: *\nDisallow: /\n");
+  });
+
   http_server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm_gz, index_htm_gz_len);
