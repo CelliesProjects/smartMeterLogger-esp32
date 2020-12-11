@@ -84,22 +84,24 @@ a{
 <div id="topmenu">
   <span id="title">smartMeterLogger</span><a href="/vandaag">vandaag</a><a href="/verleden">verleden</a>
 </div>
-<p class="info">huidig verbruik</p>
+<p class="info">nu</p>
 <div class="container">
-  <p class="name">tarief:</p><p id="tariff" class="value"></p>
   <p class="name">verbruik:</p><p id="currentUse" class="value"></p>
+  <p class="name">tarief:</p><p id="tariff" class="value"></p>
 </div>
-<p class="info">verbruik vandaag</p>
+<p class="info">vandaag</p>
 <div class="container">
-  <p class="name">electra laag:</p><span id="lowToday" class="value"></span>
-  <p class="name">electra hoog:</p><span id="highToday" class="value"></span>
-  <p class="name">gas:</p><span id="gasToday" class="value"></span>
+  <p class="name">electra laag:</p><p id="lowToday" class="value"></p>
+  <p class="name">electra hoog:</p><p id="highToday" class="value"></p>
+  <p class="name">totaal:</p><p id="total_tUse" class="value"></p>
+  <p class="name">gas:</p><p id="gasToday" class="value"></p>
 </div>
-<p class="info">totaal verbruik</p>
+<p class="info">totaal</p>
 <div class="container">
-  <p class="name">electra laag:</p><span id="lowUse" class="value"></span>
-  <p class="name">electra hoog:</p><span id="highUse" class="value"></span>
-  <p class="name">gas:</p><span id="gasUse" class="value"></span>
+  <p class="name">electra laag:</p><p id="lowUse" class="value"></p>
+  <p class="name">electra hoog:</p><p id="highUse" class="value"></p>
+  <p class="name">totaal:</p><p id="total_eUse" class="value"></p>
+  <p class="name">gas:</p><p id="gasUse" class="value"></p>
 </div>
 <script>
 var url = "http://";
@@ -129,6 +131,8 @@ ready(event => {
     document.getElementById('gasUse').innerHTML = (dsmr[3] / 1000.0).toFixed(1).replace(".", ",") + ' m³';
     document.getElementById('gasToday').innerHTML = (dsmr[6] / 1000.0).toFixed(3).replace(".", ",") + ' m³';
     document.getElementById('tariff').innerHTML = dsmr[7];
+    document.getElementById('total_eUse').innerHTML = ((dsmr[1] / 1000.0 + dsmr[2] / 1000.0)).toFixed(1).replace(".", ",") + ' kWh';
+    document.getElementById('total_tUse').innerHTML = ((dsmr[4] / 1000.0 + dsmr[5] / 1000.0)).toFixed(3).replace(".", ",") + ' kWh';
   };
   ws.onopen = function(){console.log('[WebSocket] Connected to ' + ws_host);}
   ws.onclose = function(event){console.log('[WebSocket] Connection died, code='  + event.code + ' reason=' + event.reason);}
