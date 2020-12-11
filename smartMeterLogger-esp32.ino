@@ -276,7 +276,7 @@ void loop() {
 
   static struct tm now;
   getLocalTime(&now);
-  if ((59 == now.tm_sec) && !(now.tm_min % SAVE_TIME_MIN) && (numberOfSamples > 1))
+  if ((59 == now.tm_sec) && !(now.tm_min % SAVE_TIME_MIN) && (numberOfSamples > 2))
     saveAverage(now);
 
   if (USE_WS_BRIDGE) {
