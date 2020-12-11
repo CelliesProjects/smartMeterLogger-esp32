@@ -116,6 +116,7 @@ void setup() {
 
   while (!WiFi.isConnected())
     delay(10);
+  WiFi.onEvent(WiFiEvent);
   Serial.printf("connected to '%s' as %s\n", WIFI_NETWORK, WiFi.localIP().toString().c_str());
 
   if (oledFound) {
@@ -175,36 +176,39 @@ void setup() {
   });
 
   /* icons from https://material.io/resources/icons/?icon=navigate_next&style=baseline */
-  static const char* SVG_MIMETYPE{"image/svg+xml"};
+  /*
+    static const char* SVG_MIMETYPE{"image/svg+xml"};
 
-  static const char* ICON_PREV = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
-  static const char* ICON_NEXT = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>)====";
+    static const char* ICON_PREV = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
+    static const char* ICON_NEXT = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>)====";
 
-  static const char* ACCEPT_ENCODING_HEADER{"Accept-Encoding"};
-  static const char* ACCEPT_ENCODING_VALUE{"Vary"};
+    static const char* ACCEPT_ENCODING_HEADER{"Accept-Encoding"};
+    static const char* ACCEPT_ENCODING_VALUE{"Vary"};
 
-  http_server.on("/previous.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
-    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_PREV);
-    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
-    request->send(response);
-  });
+    http_server.on("/previous.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
+      if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+      AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_PREV);
+      response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+      response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
+      request->send(response);
+    });
 
-  http_server.on("/next.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
-    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_NEXT);
-    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
-    request->send(response);
-  });
-
+    http_server.on("/next.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
+      if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+      AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_NEXT);
+      response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+      response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
+      request->send(response);
+    });
+  */
   http_server.serveStatic("/", SD, "/").setCacheControl("no-store, no-cache, must-revalidate, max-age=0");
 
   http_server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
   });
+
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+
   http_server.begin();
 
   if (USE_WS_BRIDGE)
@@ -454,5 +458,34 @@ void process(const String& telegram) {
     oled.setFont(ArialMT_Plain_24);
     oled.drawString(oled.width() >> 1, 18, String(data.power_delivered.int_val()) + "W");
     oled.display();
+  }
+}
+
+void WiFiEvent(WiFiEvent_t event) {
+  switch (event) {
+    case SYSTEM_EVENT_STA_START:
+      ESP_LOGD(TAG, "STA Started");
+      //WiFi.setHostname( DEFAULT_HOSTNAME_PREFIX.c_str();
+      break;
+    case SYSTEM_EVENT_STA_CONNECTED:
+      ESP_LOGD(TAG, "STA Connected");
+      //WiFi.enableIpV6();
+      break;
+    case SYSTEM_EVENT_AP_STA_GOT_IP6:
+      ESP_LOGD(TAG, "STA IPv6: ");
+      ESP_LOGD(TAG, "%s", WiFi.localIPv6().toString());
+      break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+      ESP_LOGD(TAG, "STA IPv4: %s", WiFi.localIP());
+      break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+      ESP_LOGI(TAG, "STA Disconnected");
+      WiFi.begin();
+      break;
+    case SYSTEM_EVENT_STA_STOP:
+      ESP_LOGI(TAG, "STA Stopped");
+      break;
+    default:
+      break;
   }
 }
