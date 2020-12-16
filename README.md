@@ -2,11 +2,13 @@
 
 ## About
 
-`smartMeterLogger-esp32` connects to a smart meter (slimme meter) and logs the electricity use per minute  to an sdcard. 
+`smartMeterLogger-esp32` connects to a smart meter (slimme meter) and logs the electricity use per minute  to an sdcard. Saved data can be viewed in a html5 compatible browser. (phone/laptop/desktop)
 
 ![overzicht vandaag android](img/screenshot_android_vandaag.png)
 
+
 ![huidig](img/screenshot_pc.png)
+
 
 ![overzicht vandaag pc](img/screenshot_vandaag_pc.png)
 
@@ -48,6 +50,12 @@ Below you can see how to enable the external antenna. Move the zero ohm resistor
 ![external-config](https://user-images.githubusercontent.com/17033305/78676790-34fd1080-78e7-11ea-8bb0-aee88efe75a6.jpg)
 
 See [this LilyGo issue](https://github.com/LilyGO/ESP32-MINI-32-V1.3/issues/4#issuecomment-610394847) about the external antenna.
+
+### SD card reader
+
+![card reader](img/sdboard.png)
+
+Using the default pins.
 
 ### Level shifter / inverter
 
