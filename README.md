@@ -4,9 +4,11 @@
 
 `smartMeterLogger-esp32` connects to a smart meter (slimme meter) and logs the electricity use per minute  to an sdcard. 
 
-![screenshot](img/screenshot.png)
+![overzicht vandaag android](img/screenshot_android_vandaag.png)
 
-![screenshot](img/screenshot_android.png)
+![huidig](img/screenshot_pc.png)
+
+![overzicht vandaag pc](img/screenshot_vandaag_pc.png)
 
 ## How to use
 
