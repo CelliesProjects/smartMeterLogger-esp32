@@ -69,8 +69,8 @@ struct {
   uint32_t gas;
 } current;
 
-time_t          bootTime;
-bool            oledFound{false};
+time_t bootTime;
+bool oledFound{false};
 
 const char* HEADER_MODIFIED_SINCE = "If-Modified-Since";
 
@@ -83,7 +83,22 @@ void connectToWebSocketBridge() {
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
 }
 
-AsyncCallbackWebHandler todaysLogFileHandler;
+void updateLogfileHandler(const tm& now) {
+  static char filename[16];
+  snprintf(filename, sizeof(filename), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
+
+  static AsyncCallbackWebHandler logFileHandler;
+  http_server.removeHandler(&logFileHandler);
+
+  logFileHandler = http_server.on(filename, HTTP_GET, [] (AsyncWebServerRequest * request) {
+    ESP_LOGI(TAG, "request for current logfile: %s", filename);
+    if (!SD.exists(filename)) return request->send(404);
+    AsyncWebServerResponse *response = request->beginResponse(SD, filename);
+    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    request->send(response);
+  });
+  ESP_LOGI(TAG, "no-cache headers set on: %s", filename);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -130,11 +145,11 @@ void setup() {
   /* sync the clock with ntp */
   configTzTime(TIMEZONE, NTP_POOL);
 
-  struct tm timeinfo {
+  struct tm now {
     0
   };
 
-  while (!getLocalTime(&timeinfo, 0))
+  while (!getLocalTime(&now, 0))
     delay(10);
 
   /* websocket setup */
@@ -203,21 +218,7 @@ void setup() {
     });
   */
 
-
-
-  /* setup the sd so that todays file is not cached and older files are cached forever */
-  static char todaysFilename[17];
-  snprintf(todaysFilename, sizeof(todaysFilename), "/%i/%i/%i.log", timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday);
-  ESP_LOGI(TAG, "%s", todaysFilename);
-
-  /* deze moet rouleren per dag */
-  todaysLogFileHandler = http_server.on(todaysFilename, HTTP_GET, [] (AsyncWebServerRequest * request) {
-    ESP_LOGI(TAG, "request url: %s", request->url());
-    if (!SD.exists(todaysFilename)) return request->send(404);
-    AsyncWebServerResponse *response = request->beginResponse(SD, todaysFilename);
-    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-    request->send(response);
-  });
+  updateLogfileHandler(now);
 
   http_server.serveStatic("/", SD, "/").setCacheControl("max-age=60000");
 
@@ -292,10 +293,16 @@ void loop() {
   ws_server_raw.cleanupClients();
   ws_server_events.cleanupClients();
 
-  static struct tm now;
+  static tm now;
   getLocalTime(&now);
   if ((59 == now.tm_sec) && !(now.tm_min % SAVE_TIME_MIN) && (numberOfSamples > 2))
     saveAverage(now);
+
+  static uint8_t currentMonthDay = now.tm_mday;
+  if (currentMonthDay != now.tm_mday) {
+    updateLogfileHandler(now);
+    currentMonthDay = now.tm_mday;
+  }
 
   if (USE_WS_BRIDGE) {
     ws_bridge.loop();
