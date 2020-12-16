@@ -1,4 +1,4 @@
-//#define SH1106_OLED              /* uncomment to compile for SH1106 instead of SSD1306 */
+#define SH1106_OLED              /* uncomment to compile for SH1106 instead of SSD1306 */
 
 #include <SD.h>
 #include <FS.h>
@@ -18,13 +18,13 @@
 #include <SSD1306.h>               /* In same library as SH1106 */
 #endif
 
-#define USE_WS_BRIDGE              true                      /* true = use a dsmr websocket bridge - false = use a dsmr smartmeter */
+#define USE_WS_BRIDGE              true                      /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
 
 const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* bridge adress */
 const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
 const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 
-#define  SAVE_TIME_MIN                 (1)              /* data save interval in minutes */
+#define  SAVE_TIME_MIN                 (1)                   /* data save interval in minutes */
 
 /* settings for smartMeter */
 #define RXD_PIN                        (36)
@@ -83,6 +83,8 @@ void connectToWebSocketBridge() {
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
 }
 
+AsyncCallbackWebHandler todaysLogFileHandler;
+
 void setup() {
   Serial.begin(115200);
   Serial.printf("\n\nsmartMeterLogger-esp32\n\nconnecting to %s...\n", WIFI_NETWORK);
@@ -135,8 +137,6 @@ void setup() {
   while (!getLocalTime(&timeinfo, 0))
     delay(10);
 
-  time(&bootTime);
-
   /* websocket setup */
   ws_server_raw.onEvent(ws_server_onEvent);
   http_server.addHandler(&ws_server_raw);
@@ -145,6 +145,7 @@ void setup() {
   http_server.addHandler(&ws_server_events);
 
   /* webserver setup */
+  time(&bootTime);
   static char modifiedDate[30];
   strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
 
@@ -201,7 +202,24 @@ void setup() {
       request->send(response);
     });
   */
-  http_server.serveStatic("/", SD, "/").setCacheControl("no-store, no-cache, must-revalidate, max-age=0");
+
+
+
+  /* setup the sd so that todays file is not cached and older files are cached forever */
+  static char todaysFilename[17];
+  snprintf(todaysFilename, sizeof(todaysFilename), "/%i/%i/%i.log", timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday);
+  ESP_LOGI(TAG, "%s", todaysFilename);
+
+  /* deze moet rouleren per dag */
+  todaysLogFileHandler = http_server.on(todaysFilename, HTTP_GET, [] (AsyncWebServerRequest * request) {
+    ESP_LOGI(TAG, "request url: %s", request->url());
+    if (!SD.exists(todaysFilename)) return request->send(404);
+    AsyncWebServerResponse *response = request->beginResponse(SD, todaysFilename);
+    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    request->send(response);
+  });
+
+  http_server.serveStatic("/", SD, "/").setCacheControl("max-age=60000");
 
   http_server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
