@@ -87,10 +87,10 @@ void updateLogfileHandler(const tm& now) {
   static char filename[16];
   snprintf(filename, sizeof(filename), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
 
-  static AsyncCallbackWebHandler logFileHandler;
-  http_server.removeHandler(&logFileHandler);
+  static AsyncCallbackWebHandler* currentLogFileHandler;
+  http_server.removeHandler(currentLogFileHandler);
 
-  logFileHandler = http_server.on(filename, HTTP_GET, [] (AsyncWebServerRequest * request) {
+  currentLogFileHandler = &http_server.on(filename, HTTP_GET, [] (AsyncWebServerRequest * request) {
     ESP_LOGI(TAG, "request for current logfile: %s", filename);
     if (!SD.exists(filename)) return request->send(404);
     AsyncWebServerResponse *response = request->beginResponse(SD, filename);
@@ -98,8 +98,9 @@ void updateLogfileHandler(const tm& now) {
     request->send(response);
   });
 
-  static AsyncStaticWebHandler* logFileHandler2 = &http_server.serveStatic("/", SD, "/").setCacheControl("max-age=60000");
-  //logFileHandler2->setCacheControl("max-age=60000");
+  static AsyncStaticWebHandler* oldLogFilesHandler;
+  http_server.removeHandler(oldLogFilesHandler);
+  oldLogFilesHandler = &http_server.serveStatic("/", SD, "/").setCacheControl("max-age=60000");
 
   ESP_LOGI(TAG, "'no-cache' headers set on: %s", filename);
 }
