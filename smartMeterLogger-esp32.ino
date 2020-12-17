@@ -1,4 +1,4 @@
-//#define SH1106_OLED              /* uncomment to compile for SH1106 instead of SSD1306 */
+#define SH1106_OLED              /* uncomment to compile for SH1106 instead of SSD1306 */
 
 #include <SD.h>
 #include <FS.h>
@@ -18,13 +18,13 @@
 #include <SSD1306.h>               /* In same library as SH1106 */
 #endif
 
-#define USE_WS_BRIDGE              true                      /* true = use a dsmr websocket bridge - false = use a dsmr smartmeter */
+#define USE_WS_BRIDGE              true                      /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
 
 const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* bridge adress */
 const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
 const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 
-#define  SAVE_TIME_MIN                 (1)              /* data save interval in minutes */
+#define  SAVE_TIME_MIN                 (1)                   /* data save interval in minutes */
 
 /* settings for smartMeter */
 #define RXD_PIN                        (36)
@@ -69,8 +69,8 @@ struct {
   uint32_t gas;
 } current;
 
-time_t          bootTime;
-bool            oledFound{false};
+time_t bootTime;
+bool oledFound{false};
 
 const char* HEADER_MODIFIED_SINCE = "If-Modified-Since";
 
@@ -81,6 +81,24 @@ static inline __attribute__((always_inline)) bool htmlUnmodified(const AsyncWebS
 void connectToWebSocketBridge() {
   ws_bridge.onEvent(ws_bridge_onEvents);
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
+}
+
+void updateFileHandlers(const tm& now) {
+  static char path[16];
+  snprintf(path, sizeof(path), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
+
+  static AsyncCallbackWebHandler* currentLogFileHandler;
+  http_server.removeHandler(currentLogFileHandler);
+  currentLogFileHandler = &http_server.on(path, HTTP_GET, [] (AsyncWebServerRequest * request) {
+    if (!SD.exists(path)) return request->send(404);
+    AsyncWebServerResponse *response = request->beginResponse(SD, path);
+    response->addHeader("Cache-Control", "no-store, max-age=0");
+    request->send(response);
+  });
+
+  static AsyncStaticWebHandler* staticFilesHandler;
+  http_server.removeHandler(staticFilesHandler);
+  staticFilesHandler = &http_server.serveStatic("/", SD, "/").setCacheControl("public, max-age=604800, immutable");
 }
 
 void setup() {
@@ -128,14 +146,12 @@ void setup() {
   /* sync the clock with ntp */
   configTzTime(TIMEZONE, NTP_POOL);
 
-  struct tm timeinfo {
+  tm now {
     0
   };
 
-  while (!getLocalTime(&timeinfo, 0))
+  while (!getLocalTime(&now, 0))
     delay(10);
-
-  time(&bootTime);
 
   /* websocket setup */
   ws_server_raw.onEvent(ws_server_onEvent);
@@ -145,6 +161,7 @@ void setup() {
   http_server.addHandler(&ws_server_events);
 
   /* webserver setup */
+  time(&bootTime);
   static char modifiedDate[30];
   strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
 
@@ -201,7 +218,8 @@ void setup() {
       request->send(response);
     });
   */
-  http_server.serveStatic("/", SD, "/").setCacheControl("no-store, no-cache, must-revalidate, max-age=0");
+
+  updateFileHandlers(now);
 
   http_server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
@@ -274,10 +292,16 @@ void loop() {
   ws_server_raw.cleanupClients();
   ws_server_events.cleanupClients();
 
-  static struct tm now;
+  static tm now;
   getLocalTime(&now);
   if ((59 == now.tm_sec) && !(now.tm_min % SAVE_TIME_MIN) && (numberOfSamples > 2))
     saveAverage(now);
+
+  static uint8_t currentMonthDay = now.tm_mday;
+  if (currentMonthDay != now.tm_mday) {
+    updateFileHandlers(now);
+    currentMonthDay = now.tm_mday;
+  }
 
   if (USE_WS_BRIDGE) {
     ws_bridge.loop();
