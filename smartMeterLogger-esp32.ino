@@ -94,13 +94,13 @@ void updateLogfileHandler(const tm& now) {
     ESP_LOGI(TAG, "request for current logfile: %s", filename);
     if (!SD.exists(filename)) return request->send(404);
     AsyncWebServerResponse *response = request->beginResponse(SD, filename);
-    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    response->addHeader("Cache-Control", "no-store, max-age=0");
     request->send(response);
   });
 
   static AsyncStaticWebHandler* oldLogFilesHandler;
   http_server.removeHandler(oldLogFilesHandler);
-  oldLogFilesHandler = &http_server.serveStatic("/", SD, "/").setCacheControl("max-age=60000");
+  oldLogFilesHandler = &http_server.serveStatic("/", SD, "/").setCacheControl("public, max-age=604800, immutable");
 
   ESP_LOGI(TAG, "'no-cache' headers set on: %s", filename);
 }
