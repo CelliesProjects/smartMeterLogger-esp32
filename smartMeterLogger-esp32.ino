@@ -100,6 +100,7 @@ void updateLogfileHandler(const tm& now) {
 
   static AsyncStaticWebHandler* oldLogFilesHandler;
   http_server.removeHandler(oldLogFilesHandler);
+
   oldLogFilesHandler = &http_server.serveStatic("/", SD, "/").setCacheControl("public, max-age=604800, immutable");
 
   ESP_LOGI(TAG, "'no-cache' headers set on: %s", filename);
