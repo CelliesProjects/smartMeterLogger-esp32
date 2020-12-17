@@ -97,7 +97,11 @@ void updateLogfileHandler(const tm& now) {
     response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
     request->send(response);
   });
-  ESP_LOGI(TAG, "no-cache headers set on: %s", filename);
+
+  static AsyncStaticWebHandler* logFileHandler2 = &http_server.serveStatic("/", SD, "/").setCacheControl("max-age=60000");
+  //logFileHandler2->setCacheControl("max-age=60000");
+
+  ESP_LOGI(TAG, "'no-cache' headers set on: %s", filename);
 }
 
 void setup() {
@@ -145,7 +149,7 @@ void setup() {
   /* sync the clock with ntp */
   configTzTime(TIMEZONE, NTP_POOL);
 
-  struct tm now {
+  tm now {
     0
   };
 
@@ -219,8 +223,6 @@ void setup() {
   */
 
   updateLogfileHandler(now);
-
-  http_server.serveStatic("/", SD, "/").setCacheControl("max-age=60000");
 
   http_server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
