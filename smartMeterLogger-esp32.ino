@@ -83,27 +83,22 @@ void connectToWebSocketBridge() {
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
 }
 
-void updateLogfileHandler(const tm& now) {
-  static char filename[16];
-  snprintf(filename, sizeof(filename), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
+void updateFileHandlers(const tm& now) {
+  static char path[16];
+  snprintf(path, sizeof(path), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
 
   static AsyncCallbackWebHandler* currentLogFileHandler;
   http_server.removeHandler(currentLogFileHandler);
-
-  currentLogFileHandler = &http_server.on(filename, HTTP_GET, [] (AsyncWebServerRequest * request) {
-    ESP_LOGI(TAG, "request for current logfile: %s", filename);
-    if (!SD.exists(filename)) return request->send(404);
-    AsyncWebServerResponse *response = request->beginResponse(SD, filename);
+  currentLogFileHandler = &http_server.on(path, HTTP_GET, [] (AsyncWebServerRequest * request) {
+    if (!SD.exists(path)) return request->send(404);
+    AsyncWebServerResponse *response = request->beginResponse(SD, path);
     response->addHeader("Cache-Control", "no-store, max-age=0");
     request->send(response);
   });
 
-  static AsyncStaticWebHandler* oldLogFilesHandler;
-  http_server.removeHandler(oldLogFilesHandler);
-
-  oldLogFilesHandler = &http_server.serveStatic("/", SD, "/").setCacheControl("public, max-age=604800, immutable");
-
-  ESP_LOGI(TAG, "'no-cache' headers set on: %s", filename);
+  static AsyncStaticWebHandler* staticFilesHandler;
+  http_server.removeHandler(staticFilesHandler);
+  staticFilesHandler = &http_server.serveStatic("/", SD, "/").setCacheControl("public, max-age=604800, immutable");
 }
 
 void setup() {
@@ -224,7 +219,7 @@ void setup() {
     });
   */
 
-  updateLogfileHandler(now);
+  updateFileHandlers(now);
 
   http_server.onNotFound([](AsyncWebServerRequest * request) {
     request->send(404);
@@ -304,7 +299,7 @@ void loop() {
 
   static uint8_t currentMonthDay = now.tm_mday;
   if (currentMonthDay != now.tm_mday) {
-    updateLogfileHandler(now);
+    updateFileHandlers(now);
     currentMonthDay = now.tm_mday;
   }
 
