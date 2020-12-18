@@ -11,6 +11,7 @@
 #include "wifisetup.h"
 #include "index_htm_gz.h"
 #include "vandaag_htm_gz.h"
+#include "verleden_htm_gz.h"
 
 #if defined(SH1106_OLED)
 #include <SH1106.h>                /* Install via 'Manage Libraries' in Arduino IDE -> https://github.com/ThingPulse/esp8266-oled-ssd1306 */
@@ -87,6 +88,8 @@ void updateFileHandlers(const tm& now) {
   static char path[16];
   snprintf(path, sizeof(path), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
 
+  ESP_LOGI(TAG, "Current logfile: %s", path);
+
   static AsyncCallbackWebHandler* currentLogFileHandler;
   http_server.removeHandler(currentLogFileHandler);
   currentLogFileHandler = &http_server.on(path, HTTP_GET, [] (AsyncWebServerRequest * request) {
@@ -94,6 +97,7 @@ void updateFileHandlers(const tm& now) {
     AsyncWebServerResponse *response = request->beginResponse(SD, path);
     response->addHeader("Cache-Control", "no-store, max-age=0");
     request->send(response);
+    ESP_LOGI(TAG, "Request for current logfile");
   });
 
   static AsyncStaticWebHandler* staticFilesHandler;
@@ -170,7 +174,7 @@ void setup() {
   static const char* HEADER_LASTMODIFIED{"Last-Modified"};
 
   static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
-  static const char* CONTENT_ENCODING_VALUE{"gzip"};
+  static const char* CONTENT_ENCODING_GZIP{"gzip"};
 
   http_server.on("/robots.txt", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(200, HTML_MIMETYPE, "User-agent: *\nDisallow: /\n");
@@ -180,7 +184,7 @@ void setup() {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm_gz, index_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_VALUE);
+    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
     request->send(response);
   });
 
@@ -188,12 +192,19 @@ void setup() {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, vandaag_htm_gz, vandaag_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_VALUE);
+    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
+    request->send(response);
+  });
+
+  http_server.on("/verleden", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, verleden_htm_gz, verleden_htm_gz_len);
+    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
     request->send(response);
   });
 
   /* icons from https://material.io/resources/icons/?icon=navigate_next&style=baseline */
-  /*
     static const char* SVG_MIMETYPE{"image/svg+xml"};
 
     static const char* ICON_PREV = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
@@ -217,7 +228,6 @@ void setup() {
       response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
       request->send(response);
     });
-  */
 
   updateFileHandlers(now);
 
