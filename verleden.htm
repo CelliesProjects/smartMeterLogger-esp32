@@ -138,12 +138,12 @@ h2{
   margin:0;
   font-size: 22px;
 }
-#date, #current{
+#date{
   margin:0 15px;
   display:inline-table;
   vertical-align:middle;
   white-space:nowrap;
-  width:500px;
+  width:30%;
 }
 .footer{
   margin:5px 10px;
@@ -170,10 +170,10 @@ h2{
   <canvas id="dayGraph" width="1440" height="500"></canvas>
 </div>
 <div id="scale">
-  <input type="button" id="startRange" class="rangebutton" value="500 W" onclick="setRange(500)">
-  <input type="button" class="rangebutton" value="1000 W" onclick="setRange(1000)">
-  <input type="button" class="rangebutton" value="2000 W" onclick="setRange(2000)">
-  <input type="button" class="rangebutton" value="4000 W" onclick="setRange(4000)">
+  <input type="button" id="startRange" class="rangebutton" value="500 W" onmouseup="setRange(500)">
+  <input type="button" class="rangebutton" value="1000 W" onmouseup="setRange(1000)">
+  <input type="button" class="rangebutton" value="2000 W" onmouseup="setRange(2000)">
+  <input type="button" class="rangebutton" value="4000 W" onmouseup="setRange(4000)">
 </div>
 <div id="nographics"></div>
 <div id="overview"></div>
@@ -192,12 +192,11 @@ var hightime;
 var highestUse = 0;
 var lowtime;
 var savedData;
-var currentDayOfMonth;
 var reboots;
 var currentDay;
 
-function datumUrl(tm) {
-  const datum = new Date(tm);
+function datumUrl(time) {
+  const datum = new Date(time);
   return http_host + "/" + datum.getFullYear() + "/" + (datum.getMonth() + 1) + "/" + datum.getDate() + ".log";
 }
 
@@ -209,13 +208,21 @@ function ready(callbackFunction){
 }
 
 function getData(time, callBack) {
-  console.log("Getting data: "+datumUrl(time));
-  var xhttp = new XMLHttpRequest();  
+  //console.log("Getting data: "+datumUrl(time));
+  var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      savedData = this.responseText;
-      callBack(this.responseText);
-      currentDay = time;
+    if (this.readyState == 4) {
+      switch (this.status) {
+        case 200 :
+          currentDay = time;
+          savedData = this.responseText;
+          callBack(this.responseText);
+        break;
+        case 404 :
+          //console.log("404");
+        break;
+        default : console.log("unhandled xhr status code " + this.status);
+      }
     }
   }
   xhttp.open("GET", datumUrl(time), true);
@@ -225,44 +232,44 @@ function getData(time, callBack) {
 
 ready(event => {
   drawBackground();
-  const now = Date.now();
-  currentDay = new Date(now - 86400 * 1000);    
+  const oneday = 86400 * 1000;
+  currentDay = new Date(Date.now() - oneday);    // since this is '/verleden', we start at yesterday;
   getData(currentDay, drawGraph);
 
   document.getElementById("startRange").focus();
 
-  document.getElementById("prevbutton").addEventListener("click", function() {
-    const previousday = (currentDay - 86400 * 1000);
-    console.log("decreasing date: " + datumUrl(previousday));
+  document.getElementById("prevbutton").addEventListener("mouseup", function() {
+    const previousday = new Date(currentDay.getTime() - oneday);
     getData(previousday, drawGraph);
-  });  
-  
-  document.getElementById("nextbutton").addEventListener("click", function() {
-    const nextday = (currentDay + 86400 * 1000);
+  });
+
+  document.getElementById("nextbutton").addEventListener("mouseup", function() {
+    const nextday = new Date(currentDay.getTime() + oneday);
     getData(nextday, drawGraph);
-  });  
+  });
 })
 
 function drawGraphItem(item){
   const itemdata = item.split(' ');
   const tm = new Date(itemdata[0]*1000);
-  if (parseInt(itemdata[1]) < lowestUse) {
-    lowestUse = parseInt(itemdata[1]);
+  const currentUse = itemdata[1];
+  if (currentUse < lowestUse) {
+    lowestUse = currentUse;
     lowtime = tm;
   }
-  if (parseInt(itemdata[1]) > highestUse) {
-    highestUse = parseInt(itemdata[1]);
+  if (currentUse > highestUse) {
+    highestUse = currentUse;
     hightime = tm;
   }
-  const secondstoday = tm.getSeconds()+tm.getMinutes() * 60 + tm.getHours() * 3600;
-  const xpos = map(secondstoday-30, 0, 86400, 0, 1440);
+  const secondstoday = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
+  const xpos = map(secondstoday - 30, 0, 86400, 0, 1440);
   const canvas = document.getElementById('dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.beginPath();
   ctx.lineWidth = 1;
   ctx.strokeStyle = 'white';
   ctx.moveTo(xpos, canvas.height);
-  const ypos = map(itemdata[1], 0, maxrange, canvas.height, 0);
+  const ypos = map(currentUse, 0, maxrange, canvas.height, 0);
   ctx.lineTo(xpos, ypos);
   ctx.stroke();
 }
@@ -327,7 +334,6 @@ function drawGraph(rawdata){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
-  reboots = 0;
   //raw (file) data always starts with a # line which if it is the first item in the file can be discarded
   if (rawdata.startsWith("#")) rawdata = rawdata.substring(rawdata.indexOf('\n') + 1);
   //extract the date
@@ -349,6 +355,9 @@ function drawGraph(rawdata){
       drawGraphItem(item);
   });
   updateFooter();
+  lowestUse = 1000000;
+  highestUse = 0;
+  reboots = 0;
 };
 
 function setRange(newrange){
