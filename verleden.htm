@@ -40,7 +40,8 @@ h2{
             user-select:none; /* Non-prefixed version,currently
                                   supported by Chrome and Opera */
 }
-#graphContainer{
+
+ #graphContainer{
   margin:5px auto;
   border:solid 1px antiquewhite;
   position:relative;
@@ -60,17 +61,32 @@ h2{
 #dayGraph{
   opacity:0.6;
 }
+#feedbackmsg{
+  position: absolute;
+  margin: auto;
+  background: black;
+  font-size: 22px;
+  color: antiquewhite;
+  top: 5px;
+  left: 100px;
+  right: 100px;
+  top: 20px;
+  padding: 10px;
+  border: solid 1px white;
+  border-radius: 5px;
+  display: none;
+}
 #scale{
   display:flex;
   margin:auto;
 }
-.rangebutton{
+.navbutton, .rangebutton{
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
   text-transform: none;
-  padding: 0;
-  margin: 0 2px;
+  padding: 0px;
+  margin: 0;
   cursor: pointer;
   text-align: center;
   position: relative;
@@ -80,8 +96,9 @@ h2{
   border:solid 1px grey;
   border-radius:5px;
   background:lightgrey;
+  vertical-align:middle;
 }
-.rangebutton:active {
+.navbutton:active, .rangebutton:active {
   transform: scale(0.95);
 }
 #nographics{
@@ -90,26 +107,33 @@ h2{
   font-size:115px;
   white-space: nowrap;
 }
+#header{
+  width:1440px;
+  margin: auto;
+  font-size: 22px;
+  display:inline-flex;
+  padding: 4px 0 0 0;
+}
 @media only screen and (max-width: 600px) {
   #current, #scale, #graphContainer, #dayGraph, #background{
     display: none;
   }
   #nographics{display: block;}
-  #header #current{display: none;}
+  #header, #current{display: none;}
 }
 @media only screen and (min-width: 600px) {
   #graphContainer,#dayGraph,#background{
     width: 600px;
     height:208px;
   }
-  #scale{width: 600px;}
+  #header, #scale{width: 600px;}
 }
 @media only screen and (min-width: 800px) {
   #graphContainer,#dayGraph,#background{
     width: 800px;
     height:277px;
   }
-  #scale{width: 800px;}
+  #header, #scale{width: 800px;}
 }
 
 @media only screen and (min-width: 1024px) {
@@ -117,33 +141,28 @@ h2{
     width: 1024px;
     height:355px;
   }
-  #scale{width: 1024px;}
+  #header, #scale{width: 1024px;}
 }
 @media only screen and (min-width: 1280px) {
   #graphContainer,#dayGraph,#background{
     width: 1280px;
     height:444px;
   }
-  #scale{width: 1280px;}
+  #header, #scale{width: 1280px;}
 }
 @media only screen and (min-width: 1440px) {
   #graphContainer,#dayGraph,#background{
     width: 1440px;
     height:500px;
   }
-  #scale{width: 1440px;}
-}
-#header{
-  width:100%;
-  margin:0;
-  font-size: 22px;
+  #header, #scale{width: 1440px;}
 }
 #date{
   margin:0 15px;
   display:inline-table;
   vertical-align:middle;
   white-space:nowrap;
-  width:30%;
+  width:50%;
 }
 .footer{
   margin:5px 10px;
@@ -155,19 +174,23 @@ h2{
   line-height:10px;
 }
 .navbutton{
-  background:grey;
   vertical-align:middle;
-  border-radius:5px;
+}
+.nowrap{
+  white-space: nowrap;
 }
 </style>
 </head>
 <body class="noselect">
+
 <div id="header">
-  <img id="prevbutton" class="navbutton" src="/previous.svg"><p id="date">&nbsp;</p><img id="nextbutton" class="navbutton" src="/next.svg">
+  <input type="button" id="prevbutton" class="navbutton" src="/previous.svg" value="VORIGE"><p id="date">&nbsp;</p><input type="button" id="nextbutton" class="navbutton" src="/next.svg" value="VOLGENDE">
 </div>
+
 <div id="graphContainer">
   <canvas id="background" width="1440" height="500"></canvas>
   <canvas id="dayGraph" width="1440" height="500"></canvas>
+  <p id="feedbackmsg"></p>
 </div>
 <div id="scale">
   <input type="button" id="startRange" class="rangebutton" value="500 W" onmouseup="setRange(500)">
@@ -186,7 +209,7 @@ var ws_host = "ws://";
 if(window.location.hostname) ws_host += window.location.hostname + "/events";
 else ws_host += debugip + "/events";
 
-var maxrange = 500; //in Watts
+var currentRange = 500; //in Watts
 var lowestUse = 10000000;
 var hightime;
 var highestUse = 0;
@@ -219,7 +242,8 @@ function getData(time, callBack) {
           callBack(this.responseText);
         break;
         case 404 :
-          //console.log("404");
+          const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+          document.getElementById('feedbackmsg').innerHTML = 'geen data aanwezig van <span class="nowrap">' + time.toLocaleDateString('nl-NL', options) + '</span>';
         break;
         default : console.log("unhandled xhr status code " + this.status);
       }
@@ -240,24 +264,32 @@ ready(event => {
 
   document.getElementById("prevbutton").addEventListener("mouseup", function() {
     const previousday = new Date(currentDay.getTime() - oneday);
+    document.getElementById("feedbackmsg").innerHTML = 'data ophalen';
+    document.getElementById("feedbackmsg").style.display = 'block';
     getData(previousday, drawGraph);
   });
 
   document.getElementById("nextbutton").addEventListener("mouseup", function() {
     const nextday = new Date(currentDay.getTime() + oneday);
+    document.getElementById("feedbackmsg").innerHTML = 'data ophalen';
+    document.getElementById("feedbackmsg").style.display = 'block';
     getData(nextday, drawGraph);
+  });
+
+  document.getElementById("feedbackmsg").addEventListener("mouseup", function() {
+    this.style.display = 'none';
   });
 })
 
 function drawGraphItem(item){
   const itemdata = item.split(' ');
-  const tm = new Date(itemdata[0]*1000);
-  const currentUse = itemdata[1];
+  const tm = new Date(parseInt(itemdata[0]) * 1000);
+  const currentUse = parseInt(itemdata[1]);
   if (currentUse < lowestUse) {
     lowestUse = currentUse;
     lowtime = tm;
   }
-  if (currentUse > highestUse) {
+  else if (currentUse > highestUse) {
     highestUse = currentUse;
     hightime = tm;
   }
@@ -269,7 +301,7 @@ function drawGraphItem(item){
   ctx.lineWidth = 1;
   ctx.strokeStyle = 'white';
   ctx.moveTo(xpos, canvas.height);
-  const ypos = map(currentUse, 0, maxrange, canvas.height, 0);
+  const ypos = map(currentUse, 0, currentRange, canvas.height, 0);
   ctx.lineTo(xpos, ypos);
   ctx.stroke();
 }
@@ -286,6 +318,9 @@ function updateFooter(){
   html += '<span class="footer">laagste verbruik: ' + lowestUse + ' W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
   html += '<span class="footer">hoogste verbruik: ' + highestUse + ' W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
   document.getElementById('overview').innerHTML = html;
+  lowestUse = 1000000;
+  highestUse = 0;
+  reboots = 0;
 }
 
 function map(x,in_min,in_max,out_min,out_max){
@@ -309,7 +344,7 @@ function drawBackground() {
     ctx.moveTo(0, vgrid);
     ctx.lineTo(1440, vgrid);
     ctx.stroke();
-    const wattage = map(vgrid, canvas.height, 0, 0, maxrange).toString();
+    const wattage = map(vgrid, canvas.height, 0, 0, currentRange).toString();
     ctx.fillText(wattage, 60, vgrid);
     ctx.fillText(wattage, 1440 >> 1, vgrid);
     ctx.fillText(wattage, 1440 - 60, vgrid);
@@ -355,14 +390,12 @@ function drawGraph(rawdata){
       drawGraphItem(item);
   });
   updateFooter();
-  lowestUse = 1000000;
-  highestUse = 0;
-  reboots = 0;
+  document.getElementById("feedbackmsg").style.display = 'none';
 };
 
 function setRange(newrange){
-  if (newrange == maxrange) return;
-  maxrange = newrange;
+  if (newrange == currentRange) return;
+  currentRange = newrange;
   drawBackground();
   drawGraph(savedData);
   //TODO: set the clicked button to some color
