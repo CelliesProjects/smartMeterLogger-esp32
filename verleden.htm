@@ -12,7 +12,6 @@ const debugip="192.168.0.109";  //change this to the esp32 ip for remote running
 <meta name="description" content="smartMeterLogger-esp32">
 <meta name="author" content="Cellie">
 <script>!function(a,b){"function"==typeof define&&define.amd?define([],b):"undefined"!=typeof module&&module.exports?module.exports=b():a.ReconnectingWebSocket=b()}(this,function(){function a(b,c,d){function l(a,b){var c=document.createEvent("CustomEvent");return c.initCustomEvent(a,!1,!1,b),c}var e={debug:!1,automaticOpen:!0,reconnectInterval:1e3,maxReconnectInterval:3e4,reconnectDecay:1.5,timeoutInterval:2e3};d||(d={});for(var f in e)this[f]="undefined"!=typeof d[f]?d[f]:e[f];this.url=b,this.reconnectAttempts=0,this.readyState=WebSocket.CONNECTING,this.protocol=null;var h,g=this,i=!1,j=!1,k=document.createElement("div");k.addEventListener("open",function(a){g.onopen(a)}),k.addEventListener("close",function(a){g.onclose(a)}),k.addEventListener("connecting",function(a){g.onconnecting(a)}),k.addEventListener("message",function(a){g.onmessage(a)}),k.addEventListener("error",function(a){g.onerror(a)}),this.addEventListener=k.addEventListener.bind(k),this.removeEventListener=k.removeEventListener.bind(k),this.dispatchEvent=k.dispatchEvent.bind(k),this.open=function(b){h=new WebSocket(g.url,c||[]),b||k.dispatchEvent(l("connecting")),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","attempt-connect",g.url);var d=h,e=setTimeout(function(){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","connection-timeout",g.url),j=!0,d.close(),j=!1},g.timeoutInterval);h.onopen=function(){clearTimeout(e),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onopen",g.url),g.protocol=h.protocol,g.readyState=WebSocket.OPEN,g.reconnectAttempts=0;var d=l("open");d.isReconnect=b,b=!1,k.dispatchEvent(d)},h.onclose=function(c){if(clearTimeout(e),h=null,i)g.readyState=WebSocket.CLOSED,k.dispatchEvent(l("close"));else{g.readyState=WebSocket.CONNECTING;var d=l("connecting");d.code=c.code,d.reason=c.reason,d.wasClean=c.wasClean,k.dispatchEvent(d),b||j||((g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onclose",g.url),k.dispatchEvent(l("close")));var e=g.reconnectInterval*Math.pow(g.reconnectDecay,g.reconnectAttempts);setTimeout(function(){g.reconnectAttempts++,g.open(!0)},e>g.maxReconnectInterval?g.maxReconnectInterval:e)}},h.onmessage=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onmessage",g.url,b.data);var c=l("message");c.data=b.data,k.dispatchEvent(c)},h.onerror=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onerror",g.url,b),k.dispatchEvent(l("error"))}},1==this.automaticOpen&&this.open(!1),this.send=function(b){if(h)return(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","send",g.url,b),h.send(b);throw"INVALID_STATE_ERR : Pausing to reconnect websocket"},this.close=function(a,b){"undefined"==typeof a&&(a=1e3),i=!0,h&&h.close(a,b)},this.refresh=function(){h&&h.close()}}return a.prototype.onopen=function(){},a.prototype.onclose=function(){},a.prototype.onconnecting=function(){},a.prototype.onmessage=function(){},a.prototype.onerror=function(){},a.debugAll=!1,a.CONNECTING=WebSocket.CONNECTING,a.OPEN=WebSocket.OPEN,a.CLOSING=WebSocket.CLOSING,a.CLOSED=WebSocket.CLOSED,a});</script>
-<!-- https://css-tricks.com/overriding-default-button-styles/ -->
 <style>
 *{box-sizing:border-box;}
 html,body{
@@ -28,6 +27,10 @@ html,body{
   text-align:center;
   font-family:'Roboto',sans-serif;
 }
+a{
+  text-decoration:none;
+  color: yellow;
+}
 h2{
   margin:5px;
 }
@@ -40,15 +43,14 @@ h2{
             user-select:none; /* Non-prefixed version,currently
                                   supported by Chrome and Opera */
 }
-
- #graphContainer{
+#graphContainer{
   margin:5px auto;
   border:solid 1px antiquewhite;
   position:relative;
   overflow:hidden;
   border-radius:5px;
 }
-#dayGraph,#background{
+#dayGraph, #compareGraph, #background{
   position:absolute;
   top:0;
   bottom:0;
@@ -57,6 +59,9 @@ h2{
 }
 #background{
   opacity:0.6;
+}
+#compareGraph{
+  opacity:0.5;
 }
 #dayGraph{
   opacity:0.6;
@@ -114,22 +119,38 @@ h2{
   display:inline-flex;
   padding: 4px 0 0 0;
 }
+#date, #compare{
+  margin:0 15px;
+  display:inline-table;
+  vertical-align:middle;
+  white-space:nowrap;
+  width:50%;
+}
+#date{
+  color:yellow;
+}
+#date:hover{
+  cursor:pointer;
+}
 @media only screen and (max-width: 600px) {
-  #current, #scale, #graphContainer, #dayGraph, #background{
+  #current, #scale, #graphContainer, #dayGraph,#compareGraph, #background{
     display: none;
   }
   #nographics{display: block;}
   #header, #current{display: none;}
 }
 @media only screen and (min-width: 600px) {
-  #graphContainer,#dayGraph,#background{
+  #graphContainer, #dayGraph, #compareGraph, #background {
     width: 600px;
     height:208px;
   }
   #header, #scale{width: 600px;}
 }
+@media only screen and (max-width: 800px) {
+  #compare{display:none;}
+}
 @media only screen and (min-width: 800px) {
-  #graphContainer,#dayGraph,#background{
+  #graphContainer, #dayGraph, #compareGraph, #background{
     width: 800px;
     height:277px;
   }
@@ -137,32 +158,25 @@ h2{
 }
 
 @media only screen and (min-width: 1024px) {
-  #graphContainer,#dayGraph,#background{
+  #graphContainer, #dayGraph, #compareGraph, #background{
     width: 1024px;
     height:355px;
   }
   #header, #scale{width: 1024px;}
 }
 @media only screen and (min-width: 1280px) {
-  #graphContainer,#dayGraph,#background{
+  #graphContainer, #dayGraph, #compareGraph, #background{
     width: 1280px;
     height:444px;
   }
   #header, #scale{width: 1280px;}
 }
 @media only screen and (min-width: 1440px) {
-  #graphContainer,#dayGraph,#background{
+  #graphContainer, #dayGraph, #compareGraph, #background{
     width: 1440px;
     height:500px;
   }
   #header, #scale{width: 1440px;}
-}
-#date{
-  margin:0 15px;
-  display:inline-table;
-  vertical-align:middle;
-  white-space:nowrap;
-  width:50%;
 }
 .footer{
   margin:5px 10px;
@@ -179,16 +193,21 @@ h2{
 .nowrap{
   white-space: nowrap;
 }
+.comparechoice{
+  color: yellow;
+}
+.comparechoice:hover{
+  cursor: pointer;
+}
 </style>
 </head>
 <body class="noselect">
-
 <div id="header">
-  <p id="date">&nbsp;</p>
+  <p id="date">&nbsp;</p><p id="compare">vergelijk met <span class="comparechoice" id="today">vandaag</span> of <span class="comparechoice" id="datechoice">kies een datum</span></p>
 </div>
-
 <div id="graphContainer">
   <canvas id="background" width="1440" height="500"></canvas>
+  <canvas id="compareGraph" width="1440" height="500"></canvas>
   <canvas id="dayGraph" width="1440" height="500"></canvas>
   <p id="feedbackmsg"></p>
 </div>
@@ -217,8 +236,11 @@ var hightime;
 var highestUse = 0;
 var lowtime;
 var savedData;
+var savedCompareData;
 var reboots;
 var currentDay;
+var compareDay;
+var weAreComparing = false
 
 function datumUrl(time) {
   const datum = new Date(time);
@@ -232,20 +254,27 @@ function ready(callbackFunction){
     document.addEventListener("DOMContentLoaded", callbackFunction);
 }
 
-function getData(time, callBack) {
-  //console.log("Getting data: "+datumUrl(time));
+function getData(time, callBack, drawOnCompare) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
+    const date = new Date(time);
     if (this.readyState == 4) {
       switch (this.status) {
         case 200 :
-          currentDay = time;
-          savedData = this.responseText;
-          callBack(this.responseText);
+          if (!drawOnCompare) {
+            savedData = this.responseText;
+            currentDay = time;
+          }
+          else {
+            savedCompareData = this.responseText;
+            compareDay = time;
+          }
+          callBack(this.responseText, drawOnCompare);
         break;
-        case 404 :
+        case 404 : {
           const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-          document.getElementById('feedbackmsg').innerHTML = 'geen data aanwezig van <span class="nowrap">' + time.toLocaleDateString('nl-NL', options) + '</span>';
+          document.getElementById('feedbackmsg').innerHTML = 'geen data aanwezig van <span class="nowrap">' + date.toLocaleDateString('nl-NL', options) + '</span>';
+        }
         break;
         default : console.log("unhandled xhr status code " + this.status);
       }
@@ -265,14 +294,14 @@ ready(event => {
   document.getElementById("startRange").focus();
 
   document.getElementById("prevbutton").addEventListener("mouseup", function() {
-    const previousday = new Date(currentDay.getTime() - oneday);
+    const previousday = new Date(currentDay).getTime() - oneday;
     document.getElementById("feedbackmsg").innerHTML = 'data ophalen';
     document.getElementById("feedbackmsg").style.display = 'block';
     getData(previousday, drawGraph);
   });
 
   document.getElementById("nextbutton").addEventListener("mouseup", function() {
-    const nextday = new Date(currentDay.getTime() + oneday);
+    const nextday = new Date(currentDay).getTime() + oneday;
     document.getElementById("feedbackmsg").innerHTML = 'data ophalen';
     document.getElementById("feedbackmsg").style.display = 'block';
     getData(nextday, drawGraph);
@@ -281,9 +310,35 @@ ready(event => {
   document.getElementById("feedbackmsg").addEventListener("mouseup", function() {
     this.style.display = 'none';
   });
+
+  document.getElementById("today").addEventListener("mouseup", function() {
+    weAreComparing = !weAreComparing;
+    this.style.color = weAreComparing ? "blue" : "yellow";
+
+    if (weAreComparing) {
+      const now = new Date();
+      //      time           cbfun      drawonCompare
+      getData(now.getTime(), drawGraph, weAreComparing);
+      compareDay = now;
+    }
+    else {
+      savedCompareData = '';
+      const canvas = document.getElementById('compareGraph');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  });
+
+  document.getElementById("datechoice").addEventListener("mouseup", function() {
+    alert("binnenkort!");
+  });
+
+  document.getElementById("date").addEventListener("mouseup", function() {
+    alert("binnenkort!");
+  });
 })
 
-function drawGraphItem(item){
+function drawGraphItem(item, drawOnCompare){
   const itemdata = item.split(' ');
   const tm = new Date(parseInt(itemdata[0]) * 1000);
   const currentUse = parseInt(itemdata[1]);
@@ -297,11 +352,12 @@ function drawGraphItem(item){
   }
   const secondstoday = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
   const xpos = map(secondstoday - 30, 0, 86400, 0, 1440);
-  const canvas = document.getElementById('dayGraph');
+  const canvas = document.getElementById(drawOnCompare ? 'compareGraph' : 'dayGraph');
+  //console.log("item drwing to"+drawOnCompare ? 'compareGraph' : 'dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.beginPath();
   ctx.lineWidth = 1;
-  ctx.strokeStyle = 'white';
+  ctx.strokeStyle = drawOnCompare ? 'blue' : 'white';
   ctx.moveTo(xpos, canvas.height);
   const ypos = map(currentUse, 0, currentRange, canvas.height, 0);
   ctx.lineTo(xpos, ypos);
@@ -320,9 +376,6 @@ function updateFooter(){
   html += '<span class="footer">laagste verbruik: ' + lowestUse + ' W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
   html += '<span class="footer">hoogste verbruik: ' + highestUse + ' W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
   document.getElementById('overview').innerHTML = html;
-  lowestUse = 1000000;
-  highestUse = 0;
-  reboots = 0;
 }
 
 function map(x,in_min,in_max,out_min,out_max){
@@ -341,7 +394,7 @@ function drawBackground() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const step = canvas.height/10;
-  for(vgrid = canvas.height; vgrid>=0; vgrid-=step){
+  for(vgrid = canvas.height; vgrid >= 0; vgrid -= step){
     ctx.beginPath();
     ctx.moveTo(0, vgrid);
     ctx.lineTo(1440, vgrid);
@@ -365,22 +418,29 @@ function drawBackground() {
   }
 }
 
-function drawGraph(rawdata){
-  const canvas = document.getElementById('dayGraph');
+function drawGraph(rawdata, drawOnCompare){
+  if (!rawdata) return;
+
+  const canvas = document.getElementById(drawOnCompare ? 'compareGraph' : 'dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
-  //raw (file) data always starts with a # line which if it is the first item in the file can be discarded
+  //raw (file) data always starts with a '#' which if it is the first item in the first line of the file can be discarded - it is the lastreboottime
   if (rawdata.startsWith("#")) rawdata = rawdata.substring(rawdata.indexOf('\n') + 1);
   //extract the date
-  const date = rawdata.substring(0,rawdata.indexOf(' '));
-  updateDate(new Date(date * 1000));
+  if (!drawOnCompare) {
+    const date = parseInt(rawdata.substring(0,rawdata.indexOf(' ')));
+    updateDate(new Date(date * 1000));
+  }
+
+
+  
   rawdata.split('\n').forEach(function(item){
-    if (item.startsWith('#')) {
-      const tm = new Date(item.substring(1, item.indexOf(" ")) * 1000);
+    if (!drawOnCompare && item.startsWith('#')) {
+      const tm = new Date(parseInt(item.substring(1, item.indexOf(" "))) * 1000);
       const reboottime = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
-      const xpos = map(reboottime,0,86400,0,1440);
+      const xpos = map(reboottime, 0, 86400, 0, 1440);
       ctx.beginPath();
       ctx.lineWidth = 2;
       ctx.strokeStyle = "red";
@@ -389,17 +449,22 @@ function drawGraph(rawdata){
       reboots++;
       ctx.stroke();
     } else
-      drawGraphItem(item);
+      drawGraphItem(item, drawOnCompare);
   });
-  updateFooter();
+  if (!drawOnCompare) updateFooter();
+
+  lowestUse = 1000000;
+  highestUse = 0;
+  reboots = 0;
+
   document.getElementById("feedbackmsg").style.display = 'none';
 };
 
 function setRange(newrange){
   currentRange = newrange;
   drawBackground();
-  drawGraph(savedData);
-  //TODO: set the clicked button to some color
+  drawGraph(savedData, false);
+  drawGraph(savedCompareData, true);
 }
 </script>
 </body>
