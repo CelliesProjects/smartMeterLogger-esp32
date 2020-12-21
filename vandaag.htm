@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script>
-const debugip="192.168.0.107";  //change this to the esp32 ip for remote running of this page
+const debugip="192.168.0.109";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -256,24 +256,25 @@ ready(event => {
 
 function drawGraphItem(item){
   const itemdata = item.split(' ');
-  const tm = new Date(itemdata[0]*1000);
-  if (parseInt(itemdata[1]) < lowestUse) {
-    lowestUse = parseInt(itemdata[1]);
+  const tm = new Date(parseInt(itemdata[0]) * 1000);
+  const currentUse = parseInt(itemdata[1]);
+  if (currentUse < lowestUse) {
+    lowestUse = currentUse;
     lowtime = tm;
   }
-  if (parseInt(itemdata[1]) > highestUse) {
-    highestUse = parseInt(itemdata[1]);
+  else if (currentUse > highestUse) {
+    highestUse = currentUse;
     hightime = tm;
   }
-  const secondstoday = tm.getSeconds()+tm.getMinutes() * 60 + tm.getHours() * 3600;
-  const xpos = map(secondstoday-30, 0, 86400, 0, 1440);
+  const secondstoday = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
+  const xpos = map(secondstoday - 30, 0, 86400, 0, 1440);
   const canvas = document.getElementById('dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.beginPath();
   ctx.lineWidth = 1;
   ctx.strokeStyle = 'white';
   ctx.moveTo(xpos, canvas.height);
-  const ypos = map(itemdata[1], 0, maxrange, canvas.height, 0);
+  const ypos = map(currentUse, 0, maxrange, canvas.height, 0);
   ctx.lineTo(xpos, ypos);
   ctx.stroke();
 }
