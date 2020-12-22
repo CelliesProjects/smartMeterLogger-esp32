@@ -127,7 +127,7 @@ h2{
   width:50%;
 }
 #date{
-  color:yellow;
+  color:lightgrey;
 }
 #date:hover{
   cursor:pointer;
@@ -194,7 +194,7 @@ h2{
   white-space: nowrap;
 }
 .comparechoice{
-  color: yellow;
+  color: lightgrey;
 }
 .comparechoice:hover{
   cursor: pointer;
@@ -240,7 +240,8 @@ var savedCompareData;
 var reboots;
 var currentDay;
 var compareDay;
-var weAreComparing = false
+var weAreComparing = false;
+const compareColor = "yellow";
 
 function datumUrl(time) {
   const datum = new Date(time);
@@ -254,14 +255,14 @@ function ready(callbackFunction){
     document.addEventListener("DOMContentLoaded", callbackFunction);
 }
 
-function getData(time, callBack, drawOnCompare) {
+function getData(time, callBack, toCompareCanvas) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     const date = new Date(time);
     if (this.readyState == 4) {
       switch (this.status) {
         case 200 :
-          if (!drawOnCompare) {
+          if (!toCompareCanvas) {
             savedData = this.responseText;
             currentDay = time;
           }
@@ -269,7 +270,7 @@ function getData(time, callBack, drawOnCompare) {
             savedCompareData = this.responseText;
             compareDay = time;
           }
-          callBack(this.responseText, drawOnCompare);
+          callBack(this.responseText, toCompareCanvas);
         break;
         case 404 : {
           const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
@@ -313,7 +314,7 @@ ready(event => {
 
   document.getElementById("today").addEventListener("mouseup", function() {
     weAreComparing = !weAreComparing;
-    this.style.color = weAreComparing ? "blue" : "yellow";
+    this.style.color = weAreComparing ? compareColor : "";
 
     if (weAreComparing) {
       const now = new Date();
@@ -338,7 +339,7 @@ ready(event => {
   });
 })
 
-function drawGraphItem(item, drawOnCompare){
+function drawGraphItem(item, toCompareCanvas){
   const itemdata = item.split(' ');
   const tm = new Date(parseInt(itemdata[0]) * 1000);
   const currentUse = parseInt(itemdata[1]);
@@ -352,12 +353,11 @@ function drawGraphItem(item, drawOnCompare){
   }
   const secondstoday = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
   const xpos = map(secondstoday - 30, 0, 86400, 0, 1440);
-  const canvas = document.getElementById(drawOnCompare ? 'compareGraph' : 'dayGraph');
-  //console.log("item drwing to"+drawOnCompare ? 'compareGraph' : 'dayGraph');
+  const canvas = document.getElementById(toCompareCanvas ? 'compareGraph' : 'dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.beginPath();
   ctx.lineWidth = 1;
-  ctx.strokeStyle = drawOnCompare ? 'blue' : 'white';
+  ctx.strokeStyle = toCompareCanvas ? compareColor : 'white';
   ctx.moveTo(xpos, canvas.height);
   const ypos = map(currentUse, 0, currentRange, canvas.height, 0);
   ctx.lineTo(xpos, ypos);
@@ -394,7 +394,7 @@ function drawBackground() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const step = canvas.height/10;
-  for(vgrid = canvas.height; vgrid >= 0; vgrid -= step){
+  for(vgrid = canvas.height - step; vgrid >= 0 + step; vgrid -= step){
     ctx.beginPath();
     ctx.moveTo(0, vgrid);
     ctx.lineTo(1440, vgrid);
@@ -418,10 +418,10 @@ function drawBackground() {
   }
 }
 
-function drawGraph(rawdata, drawOnCompare){
+function drawGraph(rawdata, toCompareCanvas){
   if (!rawdata) return;
 
-  const canvas = document.getElementById(drawOnCompare ? 'compareGraph' : 'dayGraph');
+  const canvas = document.getElementById(toCompareCanvas ? 'compareGraph' : 'dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.lineWidth = 2;
@@ -429,7 +429,7 @@ function drawGraph(rawdata, drawOnCompare){
   //raw (file) data always starts with a '#' which if it is the first item in the first line of the file can be discarded - it is the lastreboottime
   if (rawdata.startsWith("#")) rawdata = rawdata.substring(rawdata.indexOf('\n') + 1);
   //extract the date
-  if (!drawOnCompare) {
+  if (!toCompareCanvas) {
     const date = parseInt(rawdata.substring(0,rawdata.indexOf(' ')));
     updateDate(new Date(date * 1000));
   }
@@ -437,7 +437,7 @@ function drawGraph(rawdata, drawOnCompare){
 
   
   rawdata.split('\n').forEach(function(item){
-    if (!drawOnCompare && item.startsWith('#')) {
+    if (!toCompareCanvas && item.startsWith('#')) {
       const tm = new Date(parseInt(item.substring(1, item.indexOf(" "))) * 1000);
       const reboottime = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
       const xpos = map(reboottime, 0, 86400, 0, 1440);
@@ -449,9 +449,9 @@ function drawGraph(rawdata, drawOnCompare){
       reboots++;
       ctx.stroke();
     } else
-      drawGraphItem(item, drawOnCompare);
+      drawGraphItem(item, toCompareCanvas);
   });
-  if (!drawOnCompare) updateFooter();
+  if (!toCompareCanvas) updateFooter();
 
   lowestUse = 1000000;
   highestUse = 0;
