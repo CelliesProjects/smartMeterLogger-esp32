@@ -241,10 +241,10 @@ void setup() {
   });
 
   http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * request) {
-    const char* url{"maand"};
-    if (!request->hasArg(url)) return request->send(501); //chck error codes!
+    const char* month{"maand"};
+    if (!request->hasArg(month)) return request->send(501); //chck error codes!
 
-    File root = SD.open(request->arg(url));
+    File root = SD.open(request->arg(month));
     if (!root || !root.isDirectory()) return request->send(501);
 
     File file = root.openNextFile();
