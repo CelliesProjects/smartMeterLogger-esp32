@@ -204,30 +204,85 @@ void setup() {
     request->send(response);
   });
 
+  http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * request) {
+    File root = SD.open("/");
+
+    if (!root || !root.isDirectory()) return request->send(501);
+    File file = root.openNextFile();
+
+    AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+    while (file) {
+      if (file.isDirectory())
+        response->printf("%s\n", file.name());
+      file = root.openNextFile();
+    }
+    request->send(response);
+  });
+
+  http_server.on("/maanden", HTTP_GET, [](AsyncWebServerRequest * request) {
+    const char* year{"jaar"};
+
+    if (!request->hasArg(year)) return request->send(501); //chck error codes!
+    if (!SD.exists(request->arg(year))) return request->send(404);
+
+    File root = SD.open(request->arg(year));
+    if (!root || !root.isDirectory()) return request->send(501);
+
+    File file = root.openNextFile();
+    if (!file) request->send(404);
+
+    AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+    while (file) {
+      if (file.isDirectory())
+        response->printf("%s\n", file.name());
+      file = root.openNextFile();
+    }
+    request->send(response);
+  });
+
+  http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * request) {
+    const char* url{"maand"};
+    if (!request->hasArg(url)) return request->send(501); //chck error codes!
+
+    File root = SD.open(request->arg(url));
+    if (!root || !root.isDirectory()) return request->send(501);
+
+    File file = root.openNextFile();
+    if (!file) request->send(404);
+
+    AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+    while (file) {
+      if (!file.isDirectory())
+        response->printf("%s\n", file.name());
+      file = root.openNextFile();
+    }
+    request->send(response);
+  });
+
   /* icons from https://material.io/resources/icons/?icon=navigate_next&style=baseline */
-    static const char* SVG_MIMETYPE{"image/svg+xml"};
+  static const char* SVG_MIMETYPE{"image/svg+xml"};
 
-    static const char* ICON_PREV = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
-    static const char* ICON_NEXT = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>)====";
+  static const char* ICON_PREV = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
+  static const char* ICON_NEXT = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>)====";
 
-    static const char* ACCEPT_ENCODING_HEADER{"Accept-Encoding"};
-    static const char* ACCEPT_ENCODING_VALUE{"Vary"};
+  static const char* ACCEPT_ENCODING_HEADER{"Accept-Encoding"};
+  static const char* ACCEPT_ENCODING_VALUE{"Vary"};
 
-    http_server.on("/previous.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
-      if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-      AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_PREV);
-      response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-      response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
-      request->send(response);
-    });
+  http_server.on("/previous.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
+    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_PREV);
+    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+    response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
+    request->send(response);
+  });
 
-    http_server.on("/next.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
-      if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-      AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_NEXT);
-      response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-      response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
-      request->send(response);
-    });
+  http_server.on("/next.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
+    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_NEXT);
+    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
+    response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
+    request->send(response);
+  });
 
   updateFileHandlers(now);
 
