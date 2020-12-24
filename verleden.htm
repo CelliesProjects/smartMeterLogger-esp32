@@ -65,6 +65,19 @@ h2{
 #dayGraph{
   opacity:0.6;
 }
+#datepicker{
+  position:absolute;
+  top:10px;
+  bottom:10px;
+  left:10px;
+  right:10px;
+  font-size:22px;
+  padding: 10px;
+  border: solid 1px white;
+  border-radius: 5px;
+  background:black;
+  display:none;
+}
 #feedbackmsg{
   position: absolute;
   margin: auto;
@@ -208,6 +221,7 @@ h2{
   <canvas id="background" width="1440" height="500"></canvas>
   <canvas id="compareGraph" width="1440" height="500"></canvas>
   <canvas id="dayGraph" width="1440" height="500"></canvas>
+  <p id="datepicker"></p>
   <p id="feedbackmsg"></p>
 </div>
 <div id="scale">
@@ -285,6 +299,37 @@ function getData(time, callBack, toCompareCanvas) {
   return;
 }
 
+function updateMonths(){
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4) {
+      switch (this.status) {
+        case 200 : {
+          var html = '<p id="monthchoice"><label for="months">kies een maand</label>';
+          html += '<select name="months" id="months">';
+          const months = this.responseText.split('/n');
+          months.forEach(function(item){
+            if (item) html += '<option value="' + item.trim() + '">' + item.substring(item.lastIndexOf('/') + 1, item.length).trim() + '</option>';
+          });
+          html += '</select></p>';
+          //remove eventual previous months and days choosers
+          const monthchoice = document.getElementById('monthchoice');
+          if (monthchoice) monthchoice.remove();
+          var datepicker = document.getElementById('datepicker');
+          datepicker.innerHTML += html;
+        }
+        break;
+        case 404 :
+          console.log("404");
+        break;
+        default : console.log("unhandled xhr status code " + this.status);
+      }
+    }
+  }
+  xhttp.open("GET", http_host + '/maanden?jaar=' + document.getElementById('years').value, true);
+  xhttp.send();
+}
+
 ready(event => {
   drawBackground();
   const oneday = 86400 * 1000;
@@ -329,14 +374,70 @@ ready(event => {
     }
   });
 
-  document.getElementById("datechoice").addEventListener("mouseup", function() {
-    alert("binnenkort!");
+  // https://usefulangle.com/post/138/pure-javascript-event-handler-dynamic-element
+  document.querySelector('#datepicker').addEventListener('mouseup', function(e) {
+    switch (e.target.id) {
+      case 'years' :
+        updateMonths();
+      break;
+      case 'months' :
+        console.log("clicked on month " + e.target.value);
+      break
+      default : console.log('unhandled target id ' + e.target.id);
+    }
   });
 
-  document.getElementById("date").addEventListener("mouseup", function() {
-    alert("binnenkort!");
+  document.getElementById("datechoice").addEventListener("mouseup", function() {
+    var datepicker = document.getElementById('datepicker');
+    datepicker.style.display = 'block';
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4) {
+        switch (this.status) {
+          case 200 : {
+            const years = this.responseText.split('/n');
+            var html = '<p id="yearchoice"><label for="years">kies een jaar</label>';
+            html += '<select name="years" id="years">';
+            years.forEach(function(item){
+              if (item) html += '<option value="' + item.trim() + '">' + item.substring(1, item.length).trim() + '</option>';
+            });
+            html += '</select></p>';
+            datepicker.innerHTML = html;
+          }
+          break;
+          case 404 :
+            console.log("404");
+          break;
+          default : console.log("unhandled xhr status code " + this.status);
+        }
+      }
+    }
+    xhttp.open("GET", http_host + '/jaren', true);
+    xhttp.send();
   });
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function drawGraphItem(item, toCompareCanvas){
   const itemdata = item.split(' ');
@@ -434,7 +535,7 @@ function drawGraph(rawdata, toCompareCanvas){
   }
 
 
-  
+
   rawdata.split('\n').forEach(function(item){
     if (!toCompareCanvas && item.startsWith('#')) {
       const tm = new Date(parseInt(item.substring(1, item.indexOf(" "))) * 1000);
