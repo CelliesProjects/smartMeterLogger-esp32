@@ -233,16 +233,16 @@ h2{
   <button type="button" id="nextbutton" class="navbutton"><img src="/next.svg"/></button>
 </div>
 <div id="nographics"></div>
-<div id="overview"></div>
+<div id="footerbox"></div>
 <script>
 var http_host = "http://";
 if (window.location.hostname) http_host += window.location.hostname;
 else http_host += debugip;
-
+/*
 var ws_host = "ws://";
 if(window.location.hostname) ws_host += window.location.hostname + "/events";
 else ws_host += debugip + "/events";
-
+*/
 var currentRange = 500; //in Watts
 var lowestUse = 10000000;
 var hightime;
@@ -254,11 +254,12 @@ var reboots;
 var currentDay;
 var compareDay;
 var compareWithToday = false;
+var compareWithDate = false;
 const compareColor = "yellow";
 
 function datumUrl(time) {
   const datum = new Date(time);
-  return http_host + "/" + datum.getFullYear() + "/" + (datum.getMonth() + 1) + "/" + datum.getDate() + ".log";
+  return http_host + '/' + datum.getFullYear() + '/' + (datum.getMonth() + 1) + '/' + datum.getDate() + '.log';
 }
 
 function ready(callbackFunction){
@@ -294,11 +295,11 @@ function getData(time, callBack, toCompareCanvas) {
       }
     }
   }
-  xhttp.open("GET", datumUrl(time), true);
+  xhttp.open('GET', datumUrl(time), true);
   xhttp.send();
 }
 
-function updateMonths(){
+function showAvailableMonths(){
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
@@ -307,6 +308,7 @@ function updateMonths(){
           var html = '<p id="monthchoice"><label for="months">maand</label>';
           html += '<select name="months" id="months">';
           const months = this.responseText.split('/n');
+          html += '<option selected value=""></option>';
           months.forEach(function(item){
             if (item) html += '<option value="' + item.trim() + '">' + item.substring(item.lastIndexOf('/') + 1, item.length).trim() + '</option>';
           });
@@ -317,7 +319,11 @@ function updateMonths(){
           const daychoice = document.getElementById('daychoice');
           if (daychoice) daychoice.remove();
           var datepicker = document.getElementById('datepicker');
+          //save the selected index
+          const savedYear = document.getElementById('years').selectedIndex;
           datepicker.innerHTML += html;
+          //restore the saved index
+          document.getElementById('years').selectedIndex = savedYear;
         }
         break;
         case 404 :
@@ -327,11 +333,11 @@ function updateMonths(){
       }
     }
   }
-  xhttp.open("GET", http_host + '/maanden?jaar=' + document.getElementById('years').value, true);
+  xhttp.open('GET', http_host + '/maanden?jaar=' + document.getElementById('years').value, true);
   xhttp.send();
 }
 
-function updateDays(){
+function showAvailableDays(){
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
@@ -340,6 +346,7 @@ function updateDays(){
           var html = '<p id="daychoice"><label for="days">dag</label>';
           html += '<select name="days" id="days">';
           const months = this.responseText.split('\n');
+          html += '<option selected value=""></option>';
           months.forEach(function(item){
             if (item) html += '<option value="' + item.trim() + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
           });
@@ -347,17 +354,47 @@ function updateDays(){
           const daychoice = document.getElementById('daychoice');
           if (daychoice) daychoice.remove();
           var datepicker = document.getElementById('datepicker');
+          //save the index
+          const savedYear = document.getElementById('years').selectedIndex;
+          const savedMonth = document.getElementById('months').selectedIndex;
           datepicker.innerHTML += html;
+          //restore the saved index
+          document.getElementById('years').selectedIndex = savedYear;
+          document.getElementById('months').selectedIndex = savedYear;
         }
         break;
         case 404 :
-          console.log("404");
+          console.log('404');
         break;
         default : console.log("unhandled xhr status code " + this.status);
       }
     }
   }
-  xhttp.open("GET", http_host + '/dagen?maand=' + document.getElementById('months').value, true);
+  xhttp.open('GET', http_host + '/dagen?maand=' + document.getElementById('months').value, true);
+  xhttp.send();
+}
+
+function getPickedUrl(url) {
+  const datepicker = document.getElementById('datepicker');
+  console.log('url ' + http_host + url + ' -> ' + datepicker.getAttribute('data-destination') );
+   var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+    if (datepicker.getAttribute('data-destination') == 'comparecanvas') {
+      savedCompareData = xhttp.responseText;
+      drawGraph(xhttp.responseText, true);
+      const datechoice = document.getElementById('datechoice');
+      datechoice.innerHTML = url.substring(1, url.indexOf('.'));
+      datechoice.style.color = compareColor;
+      const today = document.getElementById('today');
+      today.style.color = '';
+    }
+    else {
+      savedData = xhttp.responseText;
+      drawGraph(xhttp.responseText, false);
+    }
+    datepicker.style.display = 'none';
+  }
+  xhttp.open('GET', http_host + url);
   xhttp.send();
 }
 
@@ -366,26 +403,27 @@ ready(event => {
   const oneday = 86400 * 1000;
   currentDay = new Date(Date.now() - oneday);    // since this is '/verleden', we start at yesterday;
   getData(currentDay, drawGraph);
-  document.getElementById("startRange").focus();
-  document.getElementById("prevbutton").addEventListener("mouseup", function() {
+  document.getElementById('startRange').focus();
+
+  document.getElementById('prevbutton').addEventListener('mouseup', function() {
     const previousday = new Date(currentDay).getTime() - oneday;
-    document.getElementById("feedbackmsg").innerHTML = 'data ophalen';
-    document.getElementById("feedbackmsg").style.display = 'block';
+    document.getElementById('feedbackmsg').innerHTML = 'data ophalen';
+    document.getElementById('feedbackmsg').style.display = 'block';
     getData(previousday, drawGraph);
   });
 
-  document.getElementById("nextbutton").addEventListener("mouseup", function() {
+  document.getElementById('nextbutton').addEventListener('mouseup', function() {
     const nextday = new Date(currentDay).getTime() + oneday;
-    document.getElementById("feedbackmsg").innerHTML = 'data ophalen';
-    document.getElementById("feedbackmsg").style.display = 'block';
+    document.getElementById('feedbackmsg').innerHTML = 'data ophalen';
+    document.getElementById('feedbackmsg').style.display = 'block';
     getData(nextday, drawGraph);
   });
 
-  document.getElementById("feedbackmsg").addEventListener("mouseup", function() {
+  document.getElementById('feedbackmsg').addEventListener('mouseup', function() {
     this.style.display = 'none';
   });
 
-  document.getElementById("today").addEventListener("mouseup", function() {
+  document.getElementById('today').addEventListener('mouseup', function() {
     compareWithToday = !compareWithToday;
     if (compareWithToday) {
       const now = new Date();
@@ -406,44 +444,24 @@ ready(event => {
   });
 
   // https://usefulangle.com/post/138/pure-javascript-event-handler-dynamic-element
-  document.querySelector('#datepicker').addEventListener('mouseup', function(e) {
+  document.querySelector('#datepicker').addEventListener('change', function(e) {
     switch (e.target.id) {
       case 'years' :
-        updateMonths();
+        showAvailableMonths();
       break;
       case 'months' :
-        updateDays();
+        showAvailableDays();
       break;
       case 'days' :
-        const datepicker = document.getElementById('datepicker');
-        console.log('picked ' + e.target.value + ' with destination ' + datepicker.getAttribute('data-destination') );
-         var client = new XMLHttpRequest();
-          client.open('GET', http_host + e.target.value);
-          client.onreadystatechange = function() {
-          if (datepicker.getAttribute('data-destination') == 'comparecanvas') {
-            savedCompareData = client.responseText;
-            drawGraph(client.responseText, true);
-            const datechoice = document.getElementById('datechoice');
-            datechoice.innerHTML = e.target.value.substring(1, e.target.value.indexOf('.'));
-            datechoice.style.color = compareColor;
-            const today = document.getElementById('today');
-            today.style.color = '';
-          }
-          else {
-            savedData = client.responseText;
-            drawGraph(client.responseText, false);
-          }
-          document.getElementById('datepicker').style.display = 'none';
-        }
-        client.send();
+        getPickedUrl(e.target.value);
       break;
-      default : console.log('unhandled target id ' + e.target.id);
+      default : console.log('unhandled click on id ' + e.target.id);
     }
   });
 
-  document.getElementById("datechoice").addEventListener("mouseup", function() {
+  document.getElementById('datechoice').addEventListener('mouseup', function() {
     var datepicker = document.getElementById('datepicker');
-    datepicker.style.display = (datepicker.style.display == 'block') ? "none" : "block";
+    datepicker.style.display = (datepicker.style.display == 'block') ? 'none' : 'block';
     datepicker.setAttribute('data-destination', 'comparecanvas');
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -453,6 +471,7 @@ ready(event => {
             const years = this.responseText.split('/n');
             var html = '<p id="yearchoice"><label for="years">jaar</label>';
             html += '<select name="years" id="years">';
+            html += '<option selected value=""></option>';
             years.forEach(function(item){
               if (item) html += '<option value="' + item.trim() + '">' + item.substring(1, item.length).trim() + '</option>';
             });
@@ -461,13 +480,13 @@ ready(event => {
           }
           break;
           case 404 :
-            console.log("404");
+            console.log('404');
           break;
-          default : console.log("unhandled xhr status code " + this.status);
+          default : console.log('unhandled xhr status code ' + this.status);
         }
       }
     }
-    xhttp.open("GET", http_host + '/jaren', true);
+    xhttp.open('GET', http_host + '/jaren', true);
     xhttp.send();
   });
 })
@@ -508,7 +527,7 @@ function updateFooter(){
   var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
   html += '<span class="footer">laagste verbruik: ' + lowestUse + ' W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
   html += '<span class="footer">hoogste verbruik: ' + highestUse + ' W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
-  document.getElementById('overview').innerHTML = html;
+  document.getElementById('footerbox').innerHTML = html;
 }
 
 function map(x,in_min,in_max,out_min,out_max){
