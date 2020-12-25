@@ -253,7 +253,7 @@ var savedCompareData;
 var reboots;
 var currentDay;
 var compareDay;
-var weAreComparing = false;
+var compareWithToday = false;
 const compareColor = "yellow";
 
 function datumUrl(time) {
@@ -296,7 +296,6 @@ function getData(time, callBack, toCompareCanvas) {
   }
   xhttp.open("GET", datumUrl(time), true);
   xhttp.send();
-  return;
 }
 
 function updateMonths(){
@@ -367,9 +366,7 @@ ready(event => {
   const oneday = 86400 * 1000;
   currentDay = new Date(Date.now() - oneday);    // since this is '/verleden', we start at yesterday;
   getData(currentDay, drawGraph);
-
   document.getElementById("startRange").focus();
-
   document.getElementById("prevbutton").addEventListener("mouseup", function() {
     const previousday = new Date(currentDay).getTime() - oneday;
     document.getElementById("feedbackmsg").innerHTML = 'data ophalen';
@@ -389,17 +386,19 @@ ready(event => {
   });
 
   document.getElementById("today").addEventListener("mouseup", function() {
-    weAreComparing = !weAreComparing;
-    this.style.color = weAreComparing ? compareColor : "";
-
-    if (weAreComparing) {
+    compareWithToday = !compareWithToday;
+    if (compareWithToday) {
       const now = new Date();
-      //      time           cbfun      drawonCompare
-      getData(now.getTime(), drawGraph, weAreComparing);
+      getData(now.getTime(), drawGraph, compareWithToday);
       compareDay = now;
+      this.style.color = compareColor;
+      const datechoice = document.getElementById('datechoice');
+      datechoice.style.color = '';
+      datechoice.innerHTML = 'kies een datum';
     }
     else {
       savedCompareData = '';
+      this.style.color = '';
       const canvas = document.getElementById('compareGraph');
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -424,6 +423,11 @@ ready(event => {
           if (datepicker.getAttribute('data-destination') == 'comparecanvas') {
             savedCompareData = client.responseText;
             drawGraph(client.responseText, true);
+            const datechoice = document.getElementById('datechoice');
+            datechoice.innerHTML = e.target.value.substring(1, e.target.value.indexOf('.'));
+            datechoice.style.color = compareColor;
+            const today = document.getElementById('today');
+            today.style.color = '';
           }
           else {
             savedData = client.responseText;
@@ -439,9 +443,8 @@ ready(event => {
 
   document.getElementById("datechoice").addEventListener("mouseup", function() {
     var datepicker = document.getElementById('datepicker');
-    datepicker.style.display = 'block';
+    datepicker.style.display = (datepicker.style.display == 'block') ? "none" : "block";
     datepicker.setAttribute('data-destination', 'comparecanvas');
-
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
       if (this.readyState == 4) {
@@ -468,26 +471,6 @@ ready(event => {
     xhttp.send();
   });
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 function drawGraphItem(item, toCompareCanvas){
   const itemdata = item.split(' ');
@@ -570,7 +553,6 @@ function drawBackground() {
 
 function drawGraph(rawdata, toCompareCanvas){
   if (!rawdata) return;
-
   const canvas = document.getElementById(toCompareCanvas ? 'compareGraph' : 'dayGraph');
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -583,9 +565,6 @@ function drawGraph(rawdata, toCompareCanvas){
     const date = parseInt(rawdata.substring(0,rawdata.indexOf(' ')));
     updateDate(new Date(date * 1000));
   }
-
-
-
   rawdata.split('\n').forEach(function(item){
     if (!toCompareCanvas && item.startsWith('#')) {
       const tm = new Date(parseInt(item.substring(1, item.indexOf(" "))) * 1000);
@@ -602,11 +581,9 @@ function drawGraph(rawdata, toCompareCanvas){
       drawGraphItem(item, toCompareCanvas);
   });
   if (!toCompareCanvas) updateFooter();
-
   lowestUse = 1000000;
   highestUse = 0;
   reboots = 0;
-
   document.getElementById("feedbackmsg").style.display = 'none';
 };
 
