@@ -305,7 +305,7 @@ function updateMonths(){
     if (this.readyState == 4) {
       switch (this.status) {
         case 200 : {
-          var html = '<p id="monthchoice"><label for="months">kies een maand</label>';
+          var html = '<p id="monthchoice"><label for="months">maand</label>';
           html += '<select name="months" id="months">';
           const months = this.responseText.split('/n');
           months.forEach(function(item){
@@ -315,6 +315,8 @@ function updateMonths(){
           //remove eventual previous months and days choosers
           const monthchoice = document.getElementById('monthchoice');
           if (monthchoice) monthchoice.remove();
+          const daychoice = document.getElementById('daychoice');
+          if (daychoice) daychoice.remove();
           var datepicker = document.getElementById('datepicker');
           datepicker.innerHTML += html;
         }
@@ -327,6 +329,36 @@ function updateMonths(){
     }
   }
   xhttp.open("GET", http_host + '/maanden?jaar=' + document.getElementById('years').value, true);
+  xhttp.send();
+}
+
+function updateDays(){
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4) {
+      switch (this.status) {
+        case 200 : {
+          var html = '<p id="daychoice"><label for="days">dag</label>';
+          html += '<select name="days" id="days">';
+          const months = this.responseText.split('\n');
+          months.forEach(function(item){
+            if (item) html += '<option value="' + item.trim() + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
+          });
+          html += '</select></p>';
+          const daychoice = document.getElementById('daychoice');
+          if (daychoice) daychoice.remove();
+          var datepicker = document.getElementById('datepicker');
+          datepicker.innerHTML += html;
+        }
+        break;
+        case 404 :
+          console.log("404");
+        break;
+        default : console.log("unhandled xhr status code " + this.status);
+      }
+    }
+  }
+  xhttp.open("GET", http_host + '/dagen?maand=' + document.getElementById('months').value, true);
   xhttp.send();
 }
 
@@ -381,8 +413,26 @@ ready(event => {
         updateMonths();
       break;
       case 'months' :
-        console.log("clicked on month " + e.target.value);
-      break
+        updateDays();
+      break;
+      case 'days' :
+        const datepicker = document.getElementById('datepicker');
+        console.log('picked ' + e.target.value + ' with destination ' + datepicker.getAttribute('data-destination') );
+         var client = new XMLHttpRequest();
+          client.open('GET', http_host + e.target.value);
+          client.onreadystatechange = function() {
+          if (datepicker.getAttribute('data-destination') == 'comparecanvas') {
+            savedCompareData = client.responseText;
+            drawGraph(client.responseText, true);
+          }
+          else {
+            savedData = client.responseText;
+            drawGraph(client.responseText, false);
+          }
+          document.getElementById('datepicker').style.display = 'none';
+        }
+        client.send();
+      break;
       default : console.log('unhandled target id ' + e.target.id);
     }
   });
@@ -390,13 +440,15 @@ ready(event => {
   document.getElementById("datechoice").addEventListener("mouseup", function() {
     var datepicker = document.getElementById('datepicker');
     datepicker.style.display = 'block';
+    datepicker.setAttribute('data-destination', 'comparecanvas');
+
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
       if (this.readyState == 4) {
         switch (this.status) {
           case 200 : {
             const years = this.responseText.split('/n');
-            var html = '<p id="yearchoice"><label for="years">kies een jaar</label>';
+            var html = '<p id="yearchoice"><label for="years">jaar</label>';
             html += '<select name="years" id="years">';
             years.forEach(function(item){
               if (item) html += '<option value="' + item.trim() + '">' + item.substring(1, item.length).trim() + '</option>';
@@ -416,8 +468,6 @@ ready(event => {
     xhttp.send();
   });
 })
-
-
 
 
 
