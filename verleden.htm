@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script>
-const debugip="192.168.0.109";  //change this to the esp32 ip for remote running of this page
+const debugip="192.168.0.177";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -31,6 +31,17 @@ a{
   color: yellow;
 }
 h2{
+  margin:5px;
+}
+label{
+  width:50%;
+  padding:5px;
+  text-align:right;
+}
+select{
+  text-align:left;
+  font:inherit;
+  height:fit-content;
   margin:5px;
 }
 .noselect{
@@ -138,11 +149,12 @@ h2{
   white-space:nowrap;
   width:50%;
 }
-#date{
-  color:lightgrey;
+#comparetitle {
+  margin:0;
 }
-#date:hover{
-  cursor:pointer;
+#yearchoice, #monthchoice, #daychoice{
+  margin:5px;
+  display:flex;
 }
 @media only screen and (max-width: 600px) {
   #current, #scale, #graphContainer, #dayGraph,#compareGraph, #background{
@@ -215,7 +227,7 @@ h2{
 </head>
 <body class="noselect">
 <div id="header">
-  <p id="date">&nbsp;</p><p id="compare">vergelijk met <span class="comparechoice" id="today">vandaag</span> of <span class="comparechoice" id="datechoice">kies een datum</span></p>
+  <p id="date">&nbsp;</p><p id="compare"><span class="comparechoice" id="datechoice">kies een dag</span></p>
 </div>
 <div id="graphContainer">
   <canvas id="background" width="1440" height="500"></canvas>
@@ -253,7 +265,6 @@ var savedCompareData;
 var reboots;
 var currentDay;
 var compareDay;
-var compareWithToday = false;
 var compareWithDate = false;
 const compareColor = "yellow";
 
@@ -307,10 +318,10 @@ function showAvailableMonths(){
         case 200 : {
           var html = '<p id="monthchoice"><label for="months">maand</label>';
           html += '<select name="months" id="months">';
-          const months = this.responseText.split('/n');
+          const months = this.responseText.split('\n');
           html += '<option selected value=""></option>';
           months.forEach(function(item){
-            if (item) html += '<option value="' + item.trim() + '">' + item.substring(item.lastIndexOf('/') + 1, item.length).trim() + '</option>';
+            if (item) html += '<option value="' + item + '">' + item.substring(item.lastIndexOf('/') + 1, item.length) + '</option>';
           });
           html += '</select></p>';
           //remove eventual previous months and days choosers
@@ -318,10 +329,13 @@ function showAvailableMonths(){
           if (monthchoice) monthchoice.remove();
           const daychoice = document.getElementById('daychoice');
           if (daychoice) daychoice.remove();
-          var datepicker = document.getElementById('datepicker');
+
           //save the selected index
           const savedYear = document.getElementById('years').selectedIndex;
+
+          var datepicker = document.getElementById('datepicker');
           datepicker.innerHTML += html;
+
           //restore the saved index
           document.getElementById('years').selectedIndex = savedYear;
         }
@@ -338,6 +352,7 @@ function showAvailableMonths(){
 }
 
 function showAvailableDays(){
+  console.log(document.getElementById('months').value);
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
@@ -345,7 +360,9 @@ function showAvailableDays(){
         case 200 : {
           var html = '<p id="daychoice"><label for="days">dag</label>';
           html += '<select name="days" id="days">';
+
           const months = this.responseText.split('\n');
+          console.log(months);
           html += '<option selected value=""></option>';
           months.forEach(function(item){
             if (item) html += '<option value="' + item.trim() + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
@@ -360,7 +377,7 @@ function showAvailableDays(){
           datepicker.innerHTML += html;
           //restore the saved index
           document.getElementById('years').selectedIndex = savedYear;
-          document.getElementById('months').selectedIndex = savedYear;
+          document.getElementById('months').selectedIndex = savedMonth;
         }
         break;
         case 404 :
@@ -380,13 +397,17 @@ function getPickedUrl(url) {
    var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
     if (datepicker.getAttribute('data-destination') == 'comparecanvas') {
+      compareWithDate = true;
+      const datechoice = document.getElementById('datechoice');
+      const year = parseInt(url.substring(1, 5));
+      const month = parseInt(url.substring(6, 8) - 1);
+      const mday = parseInt(url.substring(9, 11));
+      var date = new Date(year, month, mday);
+      const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+      datechoice.innerHTML = date.toLocaleDateString('nl-NL', options);
+      datechoice.style.color = compareColor;
       savedCompareData = xhttp.responseText;
       drawGraph(xhttp.responseText, true);
-      const datechoice = document.getElementById('datechoice');
-      datechoice.innerHTML = url.substring(1, url.indexOf('.'));
-      datechoice.style.color = compareColor;
-      const today = document.getElementById('today');
-      today.style.color = '';
     }
     else {
       savedData = xhttp.responseText;
@@ -407,40 +428,24 @@ ready(event => {
 
   document.getElementById('prevbutton').addEventListener('mouseup', function() {
     const previousday = new Date(currentDay).getTime() - oneday;
-    document.getElementById('feedbackmsg').innerHTML = 'data ophalen';
+    const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+    const datestr = new Date(previousday).toLocaleDateString('nl-NL', options);
+    document.getElementById('feedbackmsg').innerHTML = 'data van ' + datestr + ' ophalen';
     document.getElementById('feedbackmsg').style.display = 'block';
     getData(previousday, drawGraph);
   });
 
   document.getElementById('nextbutton').addEventListener('mouseup', function() {
     const nextday = new Date(currentDay).getTime() + oneday;
-    document.getElementById('feedbackmsg').innerHTML = 'data ophalen';
+    const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+    const datestr = new Date(nextday).toLocaleDateString('nl-NL', options);
+    document.getElementById('feedbackmsg').innerHTML = 'data van ' + datestr + ' ophalen';
     document.getElementById('feedbackmsg').style.display = 'block';
     getData(nextday, drawGraph);
   });
 
   document.getElementById('feedbackmsg').addEventListener('mouseup', function() {
     this.style.display = 'none';
-  });
-
-  document.getElementById('today').addEventListener('mouseup', function() {
-    compareWithToday = !compareWithToday;
-    if (compareWithToday) {
-      const now = new Date();
-      getData(now.getTime(), drawGraph, compareWithToday);
-      compareDay = now;
-      this.style.color = compareColor;
-      const datechoice = document.getElementById('datechoice');
-      datechoice.style.color = '';
-      datechoice.innerHTML = 'kies een datum';
-    }
-    else {
-      savedCompareData = '';
-      this.style.color = '';
-      const canvas = document.getElementById('compareGraph');
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
   });
 
   // https://usefulangle.com/post/138/pure-javascript-event-handler-dynamic-element
@@ -461,6 +466,7 @@ ready(event => {
 
   document.getElementById('datechoice').addEventListener('mouseup', function() {
     var datepicker = document.getElementById('datepicker');
+    datepicker.innerHTML = '';
     datepicker.style.display = (datepicker.style.display == 'block') ? 'none' : 'block';
     datepicker.setAttribute('data-destination', 'comparecanvas');
     var xhttp = new XMLHttpRequest();
@@ -469,7 +475,7 @@ ready(event => {
         switch (this.status) {
           case 200 : {
             const years = this.responseText.split('/n');
-            var html = '<p id="yearchoice"><label for="years">jaar</label>';
+            var html = '<p id="comparetitle">kies een datum om te vergelijken</p><p id="yearchoice"><label for="years">jaar</label>';
             html += '<select name="years" id="years">';
             html += '<option selected value=""></option>';
             years.forEach(function(item){
