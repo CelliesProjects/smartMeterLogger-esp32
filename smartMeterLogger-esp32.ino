@@ -206,55 +206,47 @@ void setup() {
 
   http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * request) {
     File root = SD.open("/");
-
-    if (!root || !root.isDirectory()) return request->send(501);
-    File file = root.openNextFile();
-
+    if (!root || !root.isDirectory()) return request->send(503);
+    File item = root.openNextFile();
     AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
-    while (file) {
-      if (file.isDirectory())
-        response->printf("%s\n", file.name());
-      file = root.openNextFile();
+    while (item) {
+      if (item.isDirectory())
+        response->printf("%s\n", item.name());
+      item = root.openNextFile();
     }
     request->send(response);
   });
 
   http_server.on("/maanden", HTTP_GET, [](AsyncWebServerRequest * request) {
     const char* year{"jaar"};
-
-    if (!request->hasArg(year)) return request->send(501); //chck error codes!
+    if (!request->hasArg(year)) return request->send(400);
     if (!SD.exists(request->arg(year))) return request->send(404);
-
-    File root = SD.open(request->arg(year));
-    if (!root || !root.isDirectory()) return request->send(501);
-
-    File file = root.openNextFile();
-    if (!file) request->send(404);
-
+    File path = SD.open(request->arg(year));
+    if (!path || !path.isDirectory()) return request->send(503);
+    File item = path.openNextFile();
+    if (!item) return request->send(404);
     AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
-    while (file) {
-      if (file.isDirectory())
-        response->printf("%s\n", file.name());
-      file = root.openNextFile();
+    while (item) {
+      if (item.isDirectory())
+        response->printf("%s\n", item.name());
+      item = path.openNextFile();
     }
     request->send(response);
   });
 
   http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * request) {
     const char* month{"maand"};
-    if (!request->hasArg(month)) return request->send(501); //chck error codes!
-
-    File root = SD.open(request->arg(month));
-    if (!root || !root.isDirectory()) return request->send(501);
-
-    File file = root.openNextFile();
-    if (!file) request->send(404);
-
+    if (!request->hasArg(month)) return request->send(400);
+    if (!SD.exists(request->arg(month))) return request->send(404);
+    File path = SD.open(request->arg(month));
+    if (!path || !path.isDirectory()) return request->send(503);
+    File item = path.openNextFile();
+    if (!item) return request->send(404);
     AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
-    while (file) {
-      if (!file.isDirectory())
-        response->printf("%s\n", file.name());
-      file = root.openNextFile();
+    while (item) {
+      if (!item.isDirectory())
+        response->printf("%s\n", item.name());
+      item = path.openNextFile();
     }
     request->send(response);
   });
