@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
 <script>
-const debugip="192.168.0.177";  //change this to the esp32 ip for remote running of this page
+const debugip="192.168.0.109";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <link rel="icon" href="data:;base64,iVBORw0KGgo="><!--prevent favicon requests-->
 <link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto" as="font" crossorigin="anonymous"> <!-- force loading of font - see https://stackoverflow.com/questions/2756575/drawing-text-to-canvas-with-font-face-does-not-work-at-the-first-time/61809834#61809834  and https://developer.mozilla.org/en-US/docs/Web/HTML/Preloading_content -->
-<title>smartMeterLogger verleden</title>
+<title>sML dag overzicht</title>
 <meta name="description" content="smartMeterLogger-esp32">
-<meta name="author" content="Cellie">
+<script>!function(a,b){"function"==typeof define&&define.amd?define([],b):"undefined"!=typeof module&&module.exports?module.exports=b():a.ReconnectingWebSocket=b()}(this,function(){function a(b,c,d){function l(a,b){var c=document.createEvent("CustomEvent");return c.initCustomEvent(a,!1,!1,b),c}var e={debug:!1,automaticOpen:!0,reconnectInterval:1e3,maxReconnectInterval:3e4,reconnectDecay:1.5,timeoutInterval:2e3};d||(d={});for(var f in e)this[f]="undefined"!=typeof d[f]?d[f]:e[f];this.url=b,this.reconnectAttempts=0,this.readyState=WebSocket.CONNECTING,this.protocol=null;var h,g=this,i=!1,j=!1,k=document.createElement("div");k.addEventListener("open",function(a){g.onopen(a)}),k.addEventListener("close",function(a){g.onclose(a)}),k.addEventListener("connecting",function(a){g.onconnecting(a)}),k.addEventListener("message",function(a){g.onmessage(a)}),k.addEventListener("error",function(a){g.onerror(a)}),this.addEventListener=k.addEventListener.bind(k),this.removeEventListener=k.removeEventListener.bind(k),this.dispatchEvent=k.dispatchEvent.bind(k),this.open=function(b){h=new WebSocket(g.url,c||[]),b||k.dispatchEvent(l("connecting")),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","attempt-connect",g.url);var d=h,e=setTimeout(function(){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","connection-timeout",g.url),j=!0,d.close(),j=!1},g.timeoutInterval);h.onopen=function(){clearTimeout(e),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onopen",g.url),g.protocol=h.protocol,g.readyState=WebSocket.OPEN,g.reconnectAttempts=0;var d=l("open");d.isReconnect=b,b=!1,k.dispatchEvent(d)},h.onclose=function(c){if(clearTimeout(e),h=null,i)g.readyState=WebSocket.CLOSED,k.dispatchEvent(l("close"));else{g.readyState=WebSocket.CONNECTING;var d=l("connecting");d.code=c.code,d.reason=c.reason,d.wasClean=c.wasClean,k.dispatchEvent(d),b||j||((g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onclose",g.url),k.dispatchEvent(l("close")));var e=g.reconnectInterval*Math.pow(g.reconnectDecay,g.reconnectAttempts);setTimeout(function(){g.reconnectAttempts++,g.open(!0)},e>g.maxReconnectInterval?g.maxReconnectInterval:e)}},h.onmessage=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onmessage",g.url,b.data);var c=l("message");c.data=b.data,k.dispatchEvent(c)},h.onerror=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onerror",g.url,b),k.dispatchEvent(l("error"))}},1==this.automaticOpen&&this.open(!1),this.send=function(b){if(h)return(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","send",g.url,b),h.send(b);throw"INVALID_STATE_ERR : Pausing to reconnect websocket"},this.close=function(a,b){"undefined"==typeof a&&(a=1e3),i=!0,h&&h.close(a,b)},this.refresh=function(){h&&h.close()}}return a.prototype.onopen=function(){},a.prototype.onclose=function(){},a.prototype.onconnecting=function(){},a.prototype.onmessage=function(){},a.prototype.onerror=function(){},a.debugAll=!1,a.CONNECTING=WebSocket.CONNECTING,a.OPEN=WebSocket.OPEN,a.CLOSING=WebSocket.CLOSING,a.CLOSED=WebSocket.CLOSED,a});</script>
 <style>
 *{box-sizing:border-box;}
 html,body{
@@ -43,6 +43,12 @@ select{
   font:inherit;
   height:fit-content;
   margin:5px;
+  border:solid 1px grey;
+  border-radius:5px;
+}
+select:disabled{
+  color:white;
+  background:inherit;
 }
 .noselect{
   -webkit-touch-callout:none; /* iOS Safari */
@@ -76,6 +82,9 @@ select{
 #dayGraph{
   opacity:0.6;
 }
+#currentdate{
+  display:none;
+}
 #datepicker{
   position:absolute;
   top:10px;
@@ -88,6 +97,7 @@ select{
   border-radius: 5px;
   background:black;
   display:none;
+  overflow-y:auto;
 }
 #feedbackmsg{
   position: absolute;
@@ -143,7 +153,7 @@ select{
   padding: 4px 0 0 0;
 }
 #date, #compare{
-  margin:0 15px;
+  margin:0;
   display:inline-table;
   vertical-align:middle;
   white-space:nowrap;
@@ -160,8 +170,11 @@ select{
   #current, #scale, #graphContainer, #dayGraph,#compareGraph, #background{
     display: none;
   }
+  #currentdate{display: block;}
   #nographics{display: block;}
   #header, #current{display: none;}
+  #footerbox,#compare{display:none;}
+
 }
 @media only screen and (min-width: 600px) {
   #graphContainer, #dayGraph, #compareGraph, #background {
@@ -169,9 +182,6 @@ select{
     height:208px;
   }
   #header, #scale{width: 600px;}
-}
-@media only screen and (max-width: 800px) {
-  #compare{display:none;}
 }
 @media only screen and (min-width: 800px) {
   #graphContainer, #dayGraph, #compareGraph, #background{
@@ -220,14 +230,17 @@ select{
 .comparechoice{
   color: lightgrey;
 }
-.comparechoice:hover{
+#stopcompare{
+  color:lightgrey;
+}
+.comparechoice:hover, #stopcompare:hover{
   cursor: pointer;
 }
 </style>
 </head>
 <body class="noselect">
 <div id="header">
-  <p id="date">&nbsp;</p><p id="compare"><span class="comparechoice" id="datechoice">kies een dag</span></p>
+  <p id="date">&nbsp;</p><p id="compare"><span class="comparechoice" id="datechoice">vergelijk</span></p>
 </div>
 <div id="graphContainer">
   <canvas id="background" width="1440" height="500"></canvas>
@@ -244,17 +257,18 @@ select{
   <input type="button" class="rangebutton" value="4000 W" onmouseup="setRange(4000)">
   <button type="button" id="nextbutton" class="navbutton"><img src="/next.svg"/></button>
 </div>
+<p id="currentdate">&nbsp;</p>
 <div id="nographics"></div>
 <div id="footerbox"></div>
 <script>
 var http_host = "http://";
 if (window.location.hostname) http_host += window.location.hostname;
 else http_host += debugip;
-/*
+
 var ws_host = "ws://";
 if(window.location.hostname) ws_host += window.location.hostname + "/events";
 else ws_host += debugip + "/events";
-*/
+
 var currentRange = 500; //in Watts
 var lowestUse = 10000000;
 var hightime;
@@ -338,6 +352,8 @@ function showAvailableMonths(){
 
           //restore the saved index
           document.getElementById('years').selectedIndex = savedYear;
+          document.getElementById('years').setAttribute('disabled', true)
+          document.getElementById('months').focus();
         }
         break;
         case 404 :
@@ -352,7 +368,6 @@ function showAvailableMonths(){
 }
 
 function showAvailableDays(){
-  console.log(document.getElementById('months').value);
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4) {
@@ -360,11 +375,8 @@ function showAvailableDays(){
         case 200 : {
           var html = '<p id="daychoice"><label for="days">dag</label>';
           html += '<select name="days" id="days">';
-
-          const months = this.responseText.split('\n');
-          console.log(months);
           html += '<option selected value=""></option>';
-          months.forEach(function(item){
+          this.responseText.split('\n').forEach(function(item){
             if (item) html += '<option value="' + item.trim() + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
           });
           html += '</select></p>';
@@ -378,6 +390,8 @@ function showAvailableDays(){
           //restore the saved index
           document.getElementById('years').selectedIndex = savedYear;
           document.getElementById('months').selectedIndex = savedMonth;
+          document.getElementById('months').setAttribute('disabled', true);
+          document.getElementById('days').focus();
         }
         break;
         case 404 :
@@ -393,9 +407,9 @@ function showAvailableDays(){
 
 function getPickedUrl(url) {
   const datepicker = document.getElementById('datepicker');
-  console.log('url ' + http_host + url + ' -> ' + datepicker.getAttribute('data-destination') );
-   var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
+  //console.log('url ' + http_host + url + ' -> ' + datepicker.getAttribute('data-destination') );
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
     if (datepicker.getAttribute('data-destination') == 'comparecanvas') {
       compareWithDate = true;
       const datechoice = document.getElementById('datechoice');
@@ -420,9 +434,32 @@ function getPickedUrl(url) {
 }
 
 ready(event => {
+  var ws = new ReconnectingWebSocket(ws_host, null, {debug:false, reconnectInterval:3500});
+  ws.onmessage = function(e){
+    if (e.data.startsWith('current\n')) {
+      var dsmr = e.data.substring(e.data.indexOf('\n') + 1).split('\n');
+      document.getElementById('nographics').innerHTML = dsmr[0] + '<span id="smallunit">w</span>';
+    }
+    else if (e.data.startsWith('electric_saved\n')) {
+        const today = new Date();
+        const current = new Date(currentDay);
+        if (current.getFullYear() == today.getFullYear() &&
+            current.getMonth() == today.getMonth() &&
+            current.getDate() == today.getDate()) {
+              const item = e.data.substring(e.data.indexOf('\n'));
+              drawGraphItem(item, false);
+            }
+    }
+  };
+  ws.onopen = function(){console.log('[WebSocket] Connected to ' + ws_host);}
+  ws.onclose = function(event){console.log('[WebSocket] Connection died, code='  + event.code + ' reason=' + event.reason);}
+  ws.onerror = function(error){console.log('[WebSocket] ' + ws_host + ' Error: ' + error.message);}
+  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+  document.getElementById('currentdate').innerHTML = new Date().toLocaleDateString('nl-NL', options);
+
   drawBackground();
   const oneday = 86400 * 1000;
-  currentDay = new Date(Date.now() - oneday);    // since this is '/verleden', we start at yesterday;
+  currentDay = new Date(Date.now());
   getData(currentDay, drawGraph);
   document.getElementById('startRange').focus();
 
@@ -460,7 +497,24 @@ ready(event => {
       case 'days' :
         getPickedUrl(e.target.value);
       break;
-      default : console.log('unhandled click on id ' + e.target.id);
+      default : console.log('unhandled change on id ' + e.target.id);
+    }
+  });
+
+  document.querySelector('#datepicker').addEventListener('mouseup', function(e) {
+    switch (e.target.id) {
+      case 'stopcompare' :
+        this.style.display = "none";
+        const datechoice = document.getElementById('datechoice');
+        datechoice.innerHTML = "vergelijk";
+        datechoice.style.color = "lightgrey";
+        const canvas = document.getElementById('compareGraph');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        savedCompareData = '';
+        compareWithDate = false;
+      break;
+      default : console.log('unhandled mouseup on id ' + e.target.id);
     }
   });
 
@@ -475,7 +529,7 @@ ready(event => {
         switch (this.status) {
           case 200 : {
             const years = this.responseText.split('/n');
-            var html = '<p id="comparetitle">kies een datum om te vergelijken</p><p id="yearchoice"><label for="years">jaar</label>';
+            var html = '<p id="comparetitle">kies een datum of <span id="stopcompare">stop vergelijken</span></p><p id="yearchoice"><label for="years">jaar</label>';
             html += '<select name="years" id="years">';
             html += '<option selected value=""></option>';
             years.forEach(function(item){
@@ -483,6 +537,7 @@ ready(event => {
             });
             html += '</select></p>';
             datepicker.innerHTML = html;
+            document.getElementById('years').focus();
           }
           break;
           case 404 :
