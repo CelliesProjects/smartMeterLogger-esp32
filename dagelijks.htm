@@ -332,27 +332,27 @@ function showAvailableMonths(){
         case 200 : {
           var html = '<p id="monthchoice"><label for="months">maand</label>';
           html += '<select name="months" id="months">';
-          const months = this.responseText.split('\n');
-          months.forEach(function(item){
+          this.responseText.split('\n').forEach(function(item){
             if (item) html += '<option value="' + item + '">' + item.substring(item.lastIndexOf('/') + 1, item.length) + '</option>';
           });
           html += '<option selected value=""></option>';
           html += '</select></p>';
           //remove eventual previous months and days choosers
-          const monthchoice = document.getElementById('monthchoice');
-          if (monthchoice) monthchoice.remove();
-          const daychoice = document.getElementById('daychoice');
-          if (daychoice) daychoice.remove();
+          //const monthchoice = document.getElementById('monthchoice');
+          //if (monthchoice) monthchoice.remove();
+          //const daychoice = document.getElementById('daychoice');
+          //if (daychoice) daychoice.remove();
 
           //save the selected index
           const savedYear = document.getElementById('years').selectedIndex;
 
-          var datepicker = document.getElementById('datepicker');
+          const datepicker = document.getElementById('datepicker');
           datepicker.innerHTML += html;
 
           //restore the saved index
-          document.getElementById('years').selectedIndex = savedYear;
-          document.getElementById('years').setAttribute('disabled', true)
+          const years = document.getElementById('years');
+          years.selectedIndex = savedYear;
+          years.setAttribute('disabled', true)
           document.getElementById('months').focus();
         }
         break;
@@ -380,8 +380,8 @@ function showAvailableDays(){
           });
           html += '<option selected value=""></option>';
           html += '</select></p>';
-          const daychoice = document.getElementById('daychoice');
-          if (daychoice) daychoice.remove();
+          //const daychoice = document.getElementById('daychoice');
+          //if (daychoice) daychoice.remove();
           var datepicker = document.getElementById('datepicker');
           //save the index
           const savedYear = document.getElementById('years').selectedIndex;
@@ -416,7 +416,7 @@ function getPickedUrl(url) {
       const year = parseInt(url.substring(1, 5));
       const month = parseInt(url.substring(6, 8) - 1);
       const mday = parseInt(url.substring(9, 11));
-      var date = new Date(year, month, mday);
+      const date = new Date(year, month, mday);
       const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
       datechoice.innerHTML = date.toLocaleDateString('nl-NL', options);
       datechoice.style.color = compareColor;
@@ -433,43 +433,51 @@ function getPickedUrl(url) {
   xhttp.send();
 }
 
+function currentDayEqualsToday() {
+  const today = new Date();
+  const current = new Date(currentDay);
+  return (current.getFullYear() == today.getFullYear() && current.getMonth() == today.getMonth() && current.getDate() == today.getDate());
+}
+
 ready(event => {
+  drawBackground();
+  const oneday = 86400 * 1000;
+  currentDay = new Date(Date.now());
+  document.getElementById('startRange').focus();
   var ws = new ReconnectingWebSocket(ws_host, null, {debug:false, reconnectInterval:3500});
+
   ws.onmessage = function(e){
     if (e.data.startsWith('current\n')) {
       var dsmr = e.data.substring(e.data.indexOf('\n') + 1).split('\n');
       document.getElementById('nographics').innerHTML = dsmr[0] + '<span id="smallunit">w</span>';
     }
-    else if (e.data.startsWith('electric_saved\n')) {
-        const today = new Date();
-        const current = new Date(currentDay);
-        if (current.getFullYear() == today.getFullYear() &&
-            current.getMonth() == today.getMonth() &&
-            current.getDate() == today.getDate()) {
-              const item = e.data.substring(e.data.indexOf('\n'));
-              savedData += item;
-              drawGraphItem(item, false);
-            }
+    else if (e.data.startsWith('electric_saved\n' && currentDayEqualsToday())) {
+      const item = e.data.substring(e.data.indexOf('\n'));
+      savedData += item;
+      drawGraphItem(item, false);
     }
-  };
-  ws.onopen = function(){console.log('[WebSocket] Connected to ' + ws_host);}
+  }
+
+  ws.onopen = function(){
+    console.log('[WebSocket] Connected to ' + ws_host);
+    if (currentDayEqualsToday()) {
+      getData(currentDay.getTime(), drawGraph);
+    }
+  }
+
   ws.onclose = function(event){console.log('[WebSocket] Connection died, code='  + event.code + ' reason=' + event.reason);}
   ws.onerror = function(error){console.log('[WebSocket] ' + ws_host + ' Error: ' + error.message);}
-  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-  document.getElementById('currentdate').innerHTML = new Date().toLocaleDateString('nl-NL', options);
 
-  drawBackground();
-  const oneday = 86400 * 1000;
-  currentDay = new Date(Date.now());
-  getData(currentDay, drawGraph);
-  document.getElementById('startRange').focus();
+  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false}
+  document.getElementById('currentdate').innerHTML = new Date().toLocaleDateString('nl-NL', options);
 
   document.getElementById('prevbutton').addEventListener('mouseup', function() {
     const previousday = new Date(currentDay).getTime() - oneday;
     const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
     const datestr = new Date(previousday).toLocaleDateString('nl-NL', options);
-    document.getElementById('feedbackmsg').innerHTML = 'data van ' + datestr + ' ophalen';
-    document.getElementById('feedbackmsg').style.display = 'block';
+    const feedbackmsg = document.getElementById('feedbackmsg');
+    feedbackmsg.innerHTML = 'data van ' + datestr + ' ophalen';
+    feedbackmsg.style.display = 'block';
     getData(previousday, drawGraph);
   });
 
@@ -477,8 +485,9 @@ ready(event => {
     const nextday = new Date(currentDay).getTime() + oneday;
     const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
     const datestr = new Date(nextday).toLocaleDateString('nl-NL', options);
-    document.getElementById('feedbackmsg').innerHTML = 'data van ' + datestr + ' ophalen';
-    document.getElementById('feedbackmsg').style.display = 'block';
+    const feedbackmsg = document.getElementById('feedbackmsg');
+    feedbackmsg.innerHTML = 'data van ' + datestr + ' ophalen';
+    feedbackmsg.style.display = 'block';
     getData(nextday, drawGraph);
   });
 
@@ -529,10 +538,9 @@ ready(event => {
       if (this.readyState == 4) {
         switch (this.status) {
           case 200 : {
-            const years = this.responseText.split('/n');
             var html = '<p id="comparetitle">kies een datum of <span id="stopcompare">stop vergelijken</span></p><p id="yearchoice"><label for="years">jaar</label>';
             html += '<select name="years" id="years">';
-            years.forEach(function(item){
+            this.responseText.split('/n').forEach(function(item){
               if (item) html += '<option value="' + item.trim() + '">' + item.substring(1, item.length).trim() + '</option>';
             });
             html += '<option selected value=""></option>';
