@@ -10,8 +10,7 @@
 
 #include "wifisetup.h"
 #include "index_htm_gz.h"
-#include "vandaag_htm_gz.h"
-#include "verleden_htm_gz.h"
+#include "dagelijks_htm_gz.h"
 
 #if defined(SH1106_OLED)
 #include <SH1106.h>                /* Install via 'Manage Libraries' in Arduino IDE -> https://github.com/ThingPulse/esp8266-oled-ssd1306 */
@@ -88,7 +87,7 @@ void updateFileHandlers(const tm& now) {
   static char path[16];
   snprintf(path, sizeof(path), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
 
-  ESP_LOGI(TAG, "Current logfile: %s", path);
+  ESP_LOGD(TAG, "Current logfile: %s", path);
 
   static AsyncCallbackWebHandler* currentLogFileHandler;
   http_server.removeHandler(currentLogFileHandler);
@@ -97,7 +96,7 @@ void updateFileHandlers(const tm& now) {
     AsyncWebServerResponse *response = request->beginResponse(SD, path);
     response->addHeader("Cache-Control", "no-store, max-age=0");
     request->send(response);
-    ESP_LOGI(TAG, "Request for current logfile");
+    ESP_LOGD(TAG, "Request for current logfile");
   });
 
   static AsyncStaticWebHandler* staticFilesHandler;
@@ -188,17 +187,9 @@ void setup() {
     request->send(response);
   });
 
-  http_server.on("/vandaag", HTTP_GET, [](AsyncWebServerRequest * request) {
+  http_server.on("/daggrafiek", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, vandaag_htm_gz, vandaag_htm_gz_len);
-    response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
-    request->send(response);
-  });
-
-  http_server.on("/verleden", HTTP_GET, [](AsyncWebServerRequest * request) {
-    if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, verleden_htm_gz, verleden_htm_gz_len);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, dagelijks_htm_gz, dagelijks_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
     response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
     request->send(response);
