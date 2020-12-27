@@ -447,6 +447,7 @@ ready(event => {
             current.getMonth() == today.getMonth() &&
             current.getDate() == today.getDate()) {
               const item = e.data.substring(e.data.indexOf('\n'));
+              savedData += item;
               drawGraphItem(item, false);
             }
     }
