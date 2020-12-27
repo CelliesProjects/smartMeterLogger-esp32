@@ -208,6 +208,7 @@ void setup() {
     File root = SD.open("/");
     if (!root || !root.isDirectory()) return request->send(503);
     File item = root.openNextFile();
+    if (!item) return request->send(404);
     AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
     while (item) {
       if (item.isDirectory())
