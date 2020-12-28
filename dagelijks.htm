@@ -451,8 +451,8 @@ ready(event => {
 
   ws.onmessage = function(e){
     if (e.data.startsWith('current\n')) {
-      const data = e.data.substring(e.data.indexOf('\n')).split('\n');
-      document.getElementById('nographics').innerHTML = data[0] + '<span id="smallunit">w</span>';
+      const use = e.data.substring(e.data.indexOf('\n') + 1).split('\n');
+      document.getElementById('nographics').innerHTML = use[0] + '<span id="smallunit"> w</span>';
     }
     else if (e.data.startsWith('electric_saved\n')) {
       if (currentDayEqualsToday()) {
