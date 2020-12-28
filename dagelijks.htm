@@ -11,6 +11,7 @@ const debugip="192.168.0.109";  //change this to the esp32 ip for remote running
 <title>sML dag overzicht</title>
 <meta name="description" content="smartMeterLogger-esp32">
 <script>!function(a,b){"function"==typeof define&&define.amd?define([],b):"undefined"!=typeof module&&module.exports?module.exports=b():a.ReconnectingWebSocket=b()}(this,function(){function a(b,c,d){function l(a,b){var c=document.createEvent("CustomEvent");return c.initCustomEvent(a,!1,!1,b),c}var e={debug:!1,automaticOpen:!0,reconnectInterval:1e3,maxReconnectInterval:3e4,reconnectDecay:1.5,timeoutInterval:2e3};d||(d={});for(var f in e)this[f]="undefined"!=typeof d[f]?d[f]:e[f];this.url=b,this.reconnectAttempts=0,this.readyState=WebSocket.CONNECTING,this.protocol=null;var h,g=this,i=!1,j=!1,k=document.createElement("div");k.addEventListener("open",function(a){g.onopen(a)}),k.addEventListener("close",function(a){g.onclose(a)}),k.addEventListener("connecting",function(a){g.onconnecting(a)}),k.addEventListener("message",function(a){g.onmessage(a)}),k.addEventListener("error",function(a){g.onerror(a)}),this.addEventListener=k.addEventListener.bind(k),this.removeEventListener=k.removeEventListener.bind(k),this.dispatchEvent=k.dispatchEvent.bind(k),this.open=function(b){h=new WebSocket(g.url,c||[]),b||k.dispatchEvent(l("connecting")),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","attempt-connect",g.url);var d=h,e=setTimeout(function(){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","connection-timeout",g.url),j=!0,d.close(),j=!1},g.timeoutInterval);h.onopen=function(){clearTimeout(e),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onopen",g.url),g.protocol=h.protocol,g.readyState=WebSocket.OPEN,g.reconnectAttempts=0;var d=l("open");d.isReconnect=b,b=!1,k.dispatchEvent(d)},h.onclose=function(c){if(clearTimeout(e),h=null,i)g.readyState=WebSocket.CLOSED,k.dispatchEvent(l("close"));else{g.readyState=WebSocket.CONNECTING;var d=l("connecting");d.code=c.code,d.reason=c.reason,d.wasClean=c.wasClean,k.dispatchEvent(d),b||j||((g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onclose",g.url),k.dispatchEvent(l("close")));var e=g.reconnectInterval*Math.pow(g.reconnectDecay,g.reconnectAttempts);setTimeout(function(){g.reconnectAttempts++,g.open(!0)},e>g.maxReconnectInterval?g.maxReconnectInterval:e)}},h.onmessage=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onmessage",g.url,b.data);var c=l("message");c.data=b.data,k.dispatchEvent(c)},h.onerror=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onerror",g.url,b),k.dispatchEvent(l("error"))}},1==this.automaticOpen&&this.open(!1),this.send=function(b){if(h)return(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","send",g.url,b),h.send(b);throw"INVALID_STATE_ERR : Pausing to reconnect websocket"},this.close=function(a,b){"undefined"==typeof a&&(a=1e3),i=!0,h&&h.close(a,b)},this.refresh=function(){h&&h.close()}}return a.prototype.onopen=function(){},a.prototype.onclose=function(){},a.prototype.onconnecting=function(){},a.prototype.onmessage=function(){},a.prototype.onerror=function(){},a.debugAll=!1,a.CONNECTING=WebSocket.CONNECTING,a.OPEN=WebSocket.OPEN,a.CLOSING=WebSocket.CLOSING,a.CLOSED=WebSocket.CLOSED,a});</script>
+<!-- https://bavotasan.com/2011/style-select-box-using-only-css/ -->
 <style>
 *{box-sizing:border-box;}
 html,body{
@@ -45,6 +46,7 @@ select{
   margin:5px;
   border:solid 1px grey;
   border-radius:5px;
+  background:inherit;
 }
 select:disabled{
   color:white;
@@ -337,11 +339,6 @@ function showAvailableMonths(){
           });
           html += '<option selected value=""></option>';
           html += '</select></p>';
-          //remove eventual previous months and days choosers
-          //const monthchoice = document.getElementById('monthchoice');
-          //if (monthchoice) monthchoice.remove();
-          //const daychoice = document.getElementById('daychoice');
-          //if (daychoice) daychoice.remove();
 
           //save the selected index
           const savedYear = document.getElementById('years').selectedIndex;
@@ -376,16 +373,14 @@ function showAvailableDays(){
           var html = '<p id="daychoice"><label for="days">dag</label>';
           html += '<select name="days" id="days">';
           this.responseText.split('\n').forEach(function(item){
-            if (item) html += '<option value="' + item.trim() + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
+            if (item) html += '<option value="' + item + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
           });
           html += '<option selected value=""></option>';
           html += '</select></p>';
-          //const daychoice = document.getElementById('daychoice');
-          //if (daychoice) daychoice.remove();
-          var datepicker = document.getElementById('datepicker');
           //save the index
           const savedYear = document.getElementById('years').selectedIndex;
           const savedMonth = document.getElementById('months').selectedIndex;
+          var datepicker = document.getElementById('datepicker');
           datepicker.innerHTML += html;
           //restore the saved index
           document.getElementById('years').selectedIndex = savedYear;
@@ -403,6 +398,14 @@ function showAvailableDays(){
   }
   xhttp.open('GET', http_host + '/dagen?maand=' + document.getElementById('months').value, true);
   xhttp.send();
+}
+
+function showLoadingFileMsg(date) {
+  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+  const datestr = new Date(date).toLocaleDateString('nl-NL', options);
+  const feedbackmsg = document.getElementById('feedbackmsg');
+  feedbackmsg.innerHTML = 'data van ' + datestr + ' ophalen';
+  feedbackmsg.style.display = 'block';
 }
 
 function getPickedUrl(url) {
@@ -448,13 +451,15 @@ ready(event => {
 
   ws.onmessage = function(e){
     if (e.data.startsWith('current\n')) {
-      var dsmr = e.data.substring(e.data.indexOf('\n') + 1).split('\n');
-      document.getElementById('nographics').innerHTML = dsmr[0] + '<span id="smallunit">w</span>';
+      const data = e.data.substring(e.data.indexOf('\n')).split('\n');
+      document.getElementById('nographics').innerHTML = data[0] + '<span id="smallunit">w</span>';
     }
-    else if (e.data.startsWith('electric_saved\n' && currentDayEqualsToday())) {
-      const item = e.data.substring(e.data.indexOf('\n'));
-      savedData += item;
-      drawGraphItem(item, false);
+    else if (e.data.startsWith('electric_saved\n')) {
+      if (currentDayEqualsToday()) {
+        const item = e.data.substring(e.data.indexOf('\n'));
+        savedData += item;
+        drawGraphItem(item, false);
+      }
     }
   }
 
@@ -473,21 +478,13 @@ ready(event => {
 
   document.getElementById('prevbutton').addEventListener('mouseup', function() {
     const previousday = new Date(currentDay).getTime() - oneday;
-    const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-    const datestr = new Date(previousday).toLocaleDateString('nl-NL', options);
-    const feedbackmsg = document.getElementById('feedbackmsg');
-    feedbackmsg.innerHTML = 'data van ' + datestr + ' ophalen';
-    feedbackmsg.style.display = 'block';
+    showLoadingFileMsg(previousday);
     getData(previousday, drawGraph);
   });
 
   document.getElementById('nextbutton').addEventListener('mouseup', function() {
     const nextday = new Date(currentDay).getTime() + oneday;
-    const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-    const datestr = new Date(nextday).toLocaleDateString('nl-NL', options);
-    const feedbackmsg = document.getElementById('feedbackmsg');
-    feedbackmsg.innerHTML = 'data van ' + datestr + ' ophalen';
-    feedbackmsg.style.display = 'block';
+    showLoadingFileMsg(nextday);
     getData(nextday, drawGraph);
   });
 
@@ -540,8 +537,8 @@ ready(event => {
           case 200 : {
             var html = '<p id="comparetitle">kies een datum of <span id="stopcompare">stop vergelijken</span></p><p id="yearchoice"><label for="years">jaar</label>';
             html += '<select name="years" id="years">';
-            this.responseText.split('/n').forEach(function(item){
-              if (item) html += '<option value="' + item.trim() + '">' + item.substring(1, item.length).trim() + '</option>';
+            this.responseText.split('\n').forEach(function(item){
+              if (item) html += '<option value="' + item + '">' + item.substring(1, item.length) + '</option>';
             });
             html += '<option selected value=""></option>';
             html += '</select></p>';
@@ -562,6 +559,7 @@ ready(event => {
 })
 
 function drawGraphItem(item, toCompareCanvas){
+  if (!item) return;
   const itemdata = item.split(' ');
   const tm = new Date(parseInt(itemdata[0]) * 1000);
   const currentUse = parseInt(itemdata[1]);
