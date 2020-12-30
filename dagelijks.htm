@@ -29,7 +29,7 @@ html,body{
 }
 a{
   text-decoration:none;
-  color: yellow;
+  color:yellow;
 }
 h2{
   margin:5px;
@@ -62,13 +62,13 @@ select:disabled{
                                   supported by Chrome and Opera */
 }
 #graphContainer{
-  margin:5px auto;
+  margin:5px auto 2px auto;
   border:solid 1px antiquewhite;
   position:relative;
   overflow:hidden;
   border-radius:5px;
 }
-#dayGraph, #compareGraph, #background{
+#dayGraph,#compareGraph,#background{
   position:absolute;
   top:0;
   bottom:0;
@@ -94,42 +94,42 @@ select:disabled{
   left:10px;
   right:10px;
   font-size:22px;
-  padding: 10px;
-  border: solid 1px white;
-  border-radius: 5px;
+  padding:10px;
+  border:solid 1px white;
+  border-radius:5px;
   background:black;
   display:none;
   overflow-y:auto;
 }
 #feedbackmsg{
-  position: absolute;
-  margin: auto;
-  background: black;
-  font-size: 22px;
-  color: antiquewhite;
-  top: 5px;
-  left: 100px;
-  right: 100px;
-  top: 20px;
-  padding: 10px;
-  border: solid 1px white;
-  border-radius: 5px;
-  display: none;
+  position:absolute;
+  margin:auto;
+  background:black;
+  font-size:22px;
+  color:antiquewhite;
+  top:5px;
+  left:100px;
+  right:100px;
+  top:20px;
+  padding:10px;
+  border:solid 1px white;
+  border-radius:5px;
+  display:none;
 }
 #scale{
   display:flex;
   margin:auto;
 }
-.navbutton, .rangebutton{
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  text-transform: none;
-  padding: 0px;
-  margin: 0;
-  cursor: pointer;
-  text-align: center;
-  position: relative;
+.navbutton,.rangebutton{
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  text-transform:none;
+  padding:0px;
+  margin:0;
+  cursor:pointer;
+  text-align:center;
+  position:relative;
   width:25%;
   font-size:20px;
   font-family:inherit;
@@ -138,86 +138,83 @@ select:disabled{
   background:lightgrey;
   vertical-align:middle;
 }
-.navbutton:active, .rangebutton:active {
-  transform: scale(0.95);
+.navbutton:active,.rangebutton:active {
+  transform:scale(0.95);
 }
 #nographics{
   line-height:200px;
   display:none;
   font-size:115px;
-  white-space: nowrap;
+  white-space:nowrap;
 }
 #header{
   width:1440px;
-  margin: auto;
-  font-size: 22px;
-  display:inline-flex;
-  padding: 4px 0 0 0;
+  margin:auto;
+  font-size:22px;
+  display:flex;
+  padding:4px 0 0 0;
 }
-#date, #compare{
+#date,#compare{
   margin:0;
-  display:inline-table;
-  vertical-align:middle;
   white-space:nowrap;
   width:50%;
 }
 #comparetitle {
   margin:0;
 }
-#yearchoice, #monthchoice, #daychoice{
+#yearchoice,#monthchoice,#daychoice{
   margin:5px;
   display:flex;
 }
-@media only screen and (max-width: 600px) {
-  #current, #scale, #graphContainer, #dayGraph,#compareGraph, #background{
-    display: none;
+@media only screen and (max-width:600px) {
+  #current,#scale,#graphContainer,#dayGraph,#compareGraph,#background{
+    display:none;
   }
-  #currentdate{display: block;}
-  #nographics{display: block;}
-  #header, #current{display: none;}
+  #currentdate{display:block;}
+  #nographics{display:block;}
+  #header,#current{display:none;}
   #footerbox,#compare{display:none;}
 
 }
-@media only screen and (min-width: 600px) {
-  #graphContainer, #dayGraph, #compareGraph, #background {
-    width: 600px;
+@media only screen and (min-width:600px) {
+  #graphContainer,#dayGraph,#compareGraph,#background {
+    width:600px;
     height:208px;
   }
-  #header, #scale{width: 600px;}
+  #header,#scale{width:600px;}
 }
-@media only screen and (min-width: 800px) {
-  #graphContainer, #dayGraph, #compareGraph, #background{
-    width: 800px;
+@media only screen and (min-width:800px) {
+  #graphContainer,#dayGraph,#compareGraph,#background{
+    width:800px;
     height:277px;
   }
-  #header, #scale{width: 800px;}
+  #header,#scale{width:800px;}
 }
-
-@media only screen and (min-width: 1024px) {
-  #graphContainer, #dayGraph, #compareGraph, #background{
-    width: 1024px;
+@media only screen and (min-width:1024px) {
+  #graphContainer,#dayGraph,#compareGraph,#background{
+    width:1024px;
     height:355px;
   }
-  #header, #scale{width: 1024px;}
+  #header,#scale{width:1024px;}
 }
-@media only screen and (min-width: 1280px) {
-  #graphContainer, #dayGraph, #compareGraph, #background{
-    width: 1280px;
+@media only screen and (min-width:1280px) {
+  #graphContainer,#dayGraph,#compareGraph,#background{
+    width:1280px;
     height:444px;
   }
-  #header, #scale{width: 1280px;}
+  #header,#scale{width:1280px;}
 }
-@media only screen and (min-width: 1440px) {
-  #graphContainer, #dayGraph, #compareGraph, #background{
-    width: 1440px;
+@media only screen and (min-width:1440px) {
+  #graphContainer,#dayGraph,#compareGraph,#background{
+    width:1440px;
     height:500px;
   }
-  #header, #scale{width: 1440px;}
+  #header,#scale{width:1440px;}
 }
 .footer{
   margin:5px 10px;
   display:inline-table;
-  white-space: nowrap;
+  white-space:nowrap;
 }
 #smallunit{
   font-size:35px;
@@ -231,16 +228,16 @@ select:disabled{
   margin:4px;
 }
 .nowrap{
-  white-space: nowrap;
+  white-space:nowrap;
 }
 .comparechoice{
-  color: lightgrey;
+  color:lightgrey;
 }
 #stopcompare{
   color:lightgrey;
 }
-.comparechoice:hover, #stopcompare:hover{
-  cursor: pointer;
+.comparechoice:hover,#stopcompare:hover{
+  cursor:pointer;
 }
 </style>
 </head>
@@ -252,8 +249,8 @@ select:disabled{
   <canvas id="background" width="1440" height="500"></canvas>
   <canvas id="compareGraph" width="1440" height="500"></canvas>
   <canvas id="dayGraph" width="1440" height="500"></canvas>
-  <p id="datepicker"></p>
   <p id="feedbackmsg"></p>
+  <p id="datepicker"></p>
 </div>
 <div id="scale">
   <button type="button" id="prevbutton" class="navbutton"><svg class="navicon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
