@@ -254,9 +254,9 @@ select:disabled{
 </div>
 <div id="scale">
   <button type="button" id="prevbutton" class="navbutton"><svg class="navicon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
-  <input type="button" id="startRange" class="rangebutton" value="500 W" onmouseup="setRange(500)">
+  <input type="button" class="rangebutton" value="500 W" onmouseup="setRange(500)">
   <input type="button" class="rangebutton" value="1000 W" onmouseup="setRange(1000)">
-  <input type="button" class="rangebutton" value="2000 W" onmouseup="setRange(2000)">
+  <input type="button" id="startRange" class="rangebutton" value="2000 W" onmouseup="setRange(2000)">
   <input type="button" class="rangebutton" value="4000 W" onmouseup="setRange(4000)">
   <button type="button" id="nextbutton" class="navbutton"><svg class="navicon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
 </div>
@@ -272,7 +272,7 @@ var ws_host = "ws://";
 if(window.location.hostname) ws_host += window.location.hostname + "/events";
 else ws_host += debugip + "/events";
 
-var currentRange = 500; //in Watts
+var currentRange = 2000; //in Watts
 var lowestUse = 10000000;
 var hightime;
 var highestUse = 0;
@@ -508,10 +508,11 @@ ready(event => {
   document.querySelector('#datepicker').addEventListener('mouseup', function(e) {
     switch (e.target.id) {
       case 'stopcompare' :
-        this.style.display = "none";
+        this.style.display = 'none';
+        document.getElementById('feedbackmsg').style.display = 'none';
         const datechoice = document.getElementById('datechoice');
-        datechoice.innerHTML = "vergelijk";
-        datechoice.style.color = "lightgrey";
+        datechoice.innerHTML = 'vergelijk';
+        datechoice.style.color = 'lightgrey';
         const canvas = document.getElementById('compareGraph');
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -527,6 +528,7 @@ ready(event => {
     datepicker.innerHTML = '';
     datepicker.style.display = (datepicker.style.display == 'block') ? 'none' : 'block';
     datepicker.setAttribute('data-destination', 'comparecanvas');
+    document.getElementById('feedbackmsg').style.display = 'none';
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
       if (this.readyState == 4) {
