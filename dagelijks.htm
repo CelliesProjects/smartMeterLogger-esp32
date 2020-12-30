@@ -469,7 +469,7 @@ ready(event => {
     console.log('[WebSocket] Connected to ' + ws_host);
     if (currentDayEqualsToday()) {
       const today = new Date(currentDay);
-      getData(today, drawGraph);
+      getData(today, drawGraph, false);
     }
   }
 
@@ -557,17 +557,17 @@ ready(event => {
     xhttp.send();
   });
 
-  document.addEventListener('visibilitychange', e =>{
-    if (document.visibilityState === 'visible' && currentDayEqualsToday())
-      ws.refresh();
-  });
-
   const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false}
   document.getElementById('currentdate').innerHTML = new Date().toLocaleDateString('nl-NL', options);
 
   drawBackground();
   currentDay = new Date(Date.now());
   document.getElementById('startRange').focus();
+
+  document.addEventListener('visibilitychange', e =>{
+    if (document.visibilityState === 'visible' && currentDayEqualsToday())
+      ws.refresh();
+  });
 })
 
 function drawGraphItem(item, toCompareCanvas){
