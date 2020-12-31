@@ -143,8 +143,10 @@ void setup() {
   if (oledFound) {
     oled.clear();
     oled.drawString(oled.width() >> 1, 0, WiFi.localIP().toString());
+    oled.drawString(oled.width() >> 1, 25, "Syncing NTP...");
     oled.display();
   }
+  Serial.println("syncing NTP...");
 
   /* sync the clock with ntp */
   configTzTime(TIMEZONE, NTP_POOL);
@@ -197,6 +199,7 @@ void setup() {
 
   http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * request) {
     File root = SD.open("/");
+    // TODO: check that the folders are at least plausibly named for a /year thing
     if (!root || !root.isDirectory()) return request->send(503);
     File item = root.openNextFile();
     if (!item) return request->send(404);
@@ -213,6 +216,7 @@ void setup() {
     const char* year{"jaar"};
     if (!request->hasArg(year)) return request->send(400);
     if (!SD.exists(request->arg(year))) return request->send(404);
+    // TODO: check that the folders are at least plausibly named for a /year/month thing
     File path = SD.open(request->arg(year));
     if (!path || !path.isDirectory()) return request->send(503);
     File item = path.openNextFile();
@@ -227,6 +231,7 @@ void setup() {
   });
 
   http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * request) {
+    // TODO: check that the file is at least plausibly named for a /year/month/day thing
     const char* month{"maand"};
     if (!request->hasArg(month)) return request->send(400);
     if (!SD.exists(request->arg(month))) return request->send(404);
