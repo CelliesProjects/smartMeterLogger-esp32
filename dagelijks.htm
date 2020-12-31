@@ -264,13 +264,8 @@ select:disabled{
 <div id="nographics"></div>
 <div id="footerbox"></div>
 <script>
-var http_host = "http://";
-if (window.location.hostname) http_host += window.location.hostname;
-else http_host += debugip;
-
-var ws_host = "ws://";
-if(window.location.hostname) ws_host += window.location.hostname + "/events";
-else ws_host += debugip + "/events";
+const http_host = "http://" + (window.location.hostname ? window.location.hostname : debugip);
+const ws_host = "ws://" + (window.location.hostname ? window.location.hostname : debugip) + "/events";
 
 var currentRange = 2000; //in Watts
 var lowestUse = 10000000;
