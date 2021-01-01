@@ -484,7 +484,7 @@ ready(event => {
     console.log('[WebSocket] Connected to ' + ws_host);
     if (currentDayEqualsToday()) {
       const today = new Date(currentDay);
-      getData(today, drawGraph, false);
+      setTimeout(getData(today, drawGraph, false), 100);
     }
   }
 
