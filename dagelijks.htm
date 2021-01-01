@@ -366,7 +366,7 @@ function showAvailableMonths(){
         case 200 : {
           var html = '<p id="monthchoice"><label for="months">maand</label>';
           html += '<select name="months" id="months">';
-          this.responseText.split('\n').sort().reverse().forEach(function(item){
+          this.responseText.split('\n').forEach(function(item){
             if (item) html += '<option value="' + item + '">' + item.substring(item.lastIndexOf('/') + 1, item.length) + '</option>';
           });
           html += '<option selected value=""></option>';
@@ -404,7 +404,7 @@ function showAvailableDays(){
         case 200 : {
           var html = '<p id="daychoice"><label for="days">dag</label>';
           html += '<select name="days" id="days">';
-          this.responseText.split('\n').sort().reverse().forEach(function(item){
+          this.responseText.split('\n').forEach(function(item){
             if (item) html += '<option value="' + item.toLowerCase() + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
           });
           html += '<option selected value=""></option>';
@@ -553,7 +553,7 @@ ready(event => {
           case 200 : {
             var html = '<p id="comparetitle">kies een datum of <span id="stopcompare">stop vergelijken</span></p><p id="yearchoice"><label for="years">jaar</label>';
             html += '<select name="years" id="years">';
-            this.responseText.split('\n').sort().reverse().forEach(function(item){
+            this.responseText.split('\n').forEach(function(item){
               if (item) html += '<option value="' + item + '">' + item.substring(1, item.length) + '</option>';
             });
             html += '<option selected value=""></option>';
