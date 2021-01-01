@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script>
-const debugip="192.168.0.109";  //change this to the esp32 ip for remote running of this page
+const debugip="192.168.0.106";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -413,8 +413,8 @@ function getPickedUrl(url) {
       compareWithDate = true;
       const datechoice = document.getElementById('datechoice');
       const year = parseInt(url.substring(1, 5));
-      const month = parseInt(url.substring(6, 8) - 1);
-      const mday = parseInt(url.substring(9, 11));
+      const month = parseInt(url.substring(6, url.lastIndexOf('/'))) - 1
+      const mday = parseInt(url.substring(url.lastIndexOf('/') + 1, url.length - 4));
       const date = new Date(year, month, mday);
       const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
       datechoice.innerHTML = date.toLocaleDateString('nl-NL', options);
