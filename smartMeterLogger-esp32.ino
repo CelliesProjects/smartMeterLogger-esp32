@@ -83,6 +83,9 @@ void connectToWebSocketBridge() {
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
 }
 
+const char* CACHE_CONTROL_HEADER{"Cache-Control"};
+const char* CACHE_CONTROL_NOCACHE{"no-store, max-age=0"};
+
 void updateFileHandlers(const tm& now) {
   static char path[16];
   snprintf(path, sizeof(path), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
@@ -94,7 +97,7 @@ void updateFileHandlers(const tm& now) {
   currentLogFileHandler = &http_server.on(path, HTTP_GET, [] (AsyncWebServerRequest * request) {
     if (!SD.exists(path)) return request->send(404);
     AsyncWebServerResponse *response = request->beginResponse(SD, path);
-    response->addHeader("Cache-Control", "no-store, max-age=0");
+    response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
     request->send(response);
     ESP_LOGD(TAG, "Request for current logfile");
   });
@@ -197,9 +200,6 @@ void setup() {
     request->send(response);
   });
 
-  static const char* CACHE_CONTROL_HEADER{"Cache-Control"};
-  static const char* CACHE_CONTROL_NOCACHE{"no-store, max-age=0"};
-
   http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * request) {
     File root = SD.open("/");
     // TODO: check that the folders are at least plausibly named for a /year thing
@@ -237,7 +237,9 @@ void setup() {
 
   http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * request) {
     // TODO: check that the file is at least plausibly named for a /year/month/day thing
-    const char* month{"maand"};
+    const char* month {
+      "maand"
+    };
     if (!request->hasArg(month)) return request->send(400);
     if (!SD.exists(request->arg(month))) return request->send(404);
     File path = SD.open(request->arg(month));
