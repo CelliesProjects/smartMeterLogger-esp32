@@ -11,7 +11,6 @@ const debugip="192.168.0.103";  //change this to the esp32 ip for remote running
 <title>slimme meter dagoverzicht</title>
 <meta name="description" content="smartMeterLogger-esp32">
 <script>!function(a,b){"function"==typeof define&&define.amd?define([],b):"undefined"!=typeof module&&module.exports?module.exports=b():a.ReconnectingWebSocket=b()}(this,function(){function a(b,c,d){function l(a,b){var c=document.createEvent("CustomEvent");return c.initCustomEvent(a,!1,!1,b),c}var e={debug:!1,automaticOpen:!0,reconnectInterval:1e3,maxReconnectInterval:3e4,reconnectDecay:1.5,timeoutInterval:2e3};d||(d={});for(var f in e)this[f]="undefined"!=typeof d[f]?d[f]:e[f];this.url=b,this.reconnectAttempts=0,this.readyState=WebSocket.CONNECTING,this.protocol=null;var h,g=this,i=!1,j=!1,k=document.createElement("div");k.addEventListener("open",function(a){g.onopen(a)}),k.addEventListener("close",function(a){g.onclose(a)}),k.addEventListener("connecting",function(a){g.onconnecting(a)}),k.addEventListener("message",function(a){g.onmessage(a)}),k.addEventListener("error",function(a){g.onerror(a)}),this.addEventListener=k.addEventListener.bind(k),this.removeEventListener=k.removeEventListener.bind(k),this.dispatchEvent=k.dispatchEvent.bind(k),this.open=function(b){h=new WebSocket(g.url,c||[]),b||k.dispatchEvent(l("connecting")),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","attempt-connect",g.url);var d=h,e=setTimeout(function(){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","connection-timeout",g.url),j=!0,d.close(),j=!1},g.timeoutInterval);h.onopen=function(){clearTimeout(e),(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onopen",g.url),g.protocol=h.protocol,g.readyState=WebSocket.OPEN,g.reconnectAttempts=0;var d=l("open");d.isReconnect=b,b=!1,k.dispatchEvent(d)},h.onclose=function(c){if(clearTimeout(e),h=null,i)g.readyState=WebSocket.CLOSED,k.dispatchEvent(l("close"));else{g.readyState=WebSocket.CONNECTING;var d=l("connecting");d.code=c.code,d.reason=c.reason,d.wasClean=c.wasClean,k.dispatchEvent(d),b||j||((g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onclose",g.url),k.dispatchEvent(l("close")));var e=g.reconnectInterval*Math.pow(g.reconnectDecay,g.reconnectAttempts);setTimeout(function(){g.reconnectAttempts++,g.open(!0)},e>g.maxReconnectInterval?g.maxReconnectInterval:e)}},h.onmessage=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onmessage",g.url,b.data);var c=l("message");c.data=b.data,k.dispatchEvent(c)},h.onerror=function(b){(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","onerror",g.url,b),k.dispatchEvent(l("error"))}},1==this.automaticOpen&&this.open(!1),this.send=function(b){if(h)return(g.debug||a.debugAll)&&console.debug("ReconnectingWebSocket","send",g.url,b),h.send(b);throw"INVALID_STATE_ERR : Pausing to reconnect websocket"},this.close=function(a,b){"undefined"==typeof a&&(a=1e3),i=!0,h&&h.close(a,b)},this.refresh=function(){h&&h.close()}}return a.prototype.onopen=function(){},a.prototype.onclose=function(){},a.prototype.onconnecting=function(){},a.prototype.onmessage=function(){},a.prototype.onerror=function(){},a.debugAll=!1,a.CONNECTING=WebSocket.CONNECTING,a.OPEN=WebSocket.OPEN,a.CLOSING=WebSocket.CLOSING,a.CLOSED=WebSocket.CLOSED,a});</script>
-<!-- https://bavotasan.com/2011/style-select-box-using-only-css/ -->
 <style>
 *{box-sizing:border-box;}
 html,body{
@@ -277,19 +276,56 @@ var savedCompareData;
 var reboots;
 var currentDay;
 var compareDay;
-var compareWithDate = false;
 const compareColor = "yellow";
-
-function datumUrl(time) {
-  const datum = new Date(time);
-  return http_host + '/' + datum.getFullYear() + '/' + (datum.getMonth() + 1) + '/' + datum.getDate() + '.log';
-}
 
 function ready(callbackFunction){
   if(document.readyState != 'loading')
     callbackFunction(event);
   else
     document.addEventListener("DOMContentLoaded", callbackFunction);
+}
+
+function datumUrl(date) {
+  const datum = new Date(date);
+  return http_host + '/' + datum.getFullYear() + '/' + (datum.getMonth() + 1) + '/' + datum.getDate() + '.log';
+}
+
+function currentDayEqualsToday() {
+  const today = new Date();
+  const current = new Date(currentDay);
+  return (current.getFullYear() == today.getFullYear() && current.getMonth() == today.getMonth() && current.getDate() == today.getDate());
+}
+
+function showLoadingFileMsg(date) {
+  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+  const datestr = new Date(date).toLocaleDateString('nl-NL', options);
+  const feedbackmsg = document.getElementById('feedbackmsg');
+  feedbackmsg.innerHTML = 'data van ' + datestr + ' ophalen';
+  feedbackmsg.style.display = 'block';
+}
+
+function updateDate(tm){
+  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+  document.getElementById('date').innerHTML = tm.toLocaleDateString('nl-NL', options);
+}
+
+function updateFooter(){
+  const options = {hour: 'numeric', minute: '2-digit', hour12: false};
+  var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
+  html += '<span class="footer">laagste verbruik: ' + lowestUse + ' W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
+  html += '<span class="footer">hoogste verbruik: ' + highestUse + ' W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
+  document.getElementById('footerbox').innerHTML = html;
+}
+
+function map(x,in_min,in_max,out_min,out_max){
+  return(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+function setRange(newrange){
+  currentRange = newrange;
+  drawBackground();
+  drawGraph(savedData, false);
+  drawGraph(savedCompareData, true);
 }
 
 function getData(time, callBack, toCompareCanvas) {
@@ -396,48 +432,35 @@ function showAvailableDays(){
   xhttp.send();
 }
 
-function showLoadingFileMsg(date) {
-  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-  const datestr = new Date(date).toLocaleDateString('nl-NL', options);
-  const feedbackmsg = document.getElementById('feedbackmsg');
-  feedbackmsg.innerHTML = 'data van ' + datestr + ' ophalen';
-  feedbackmsg.style.display = 'block';
-}
-
-function getPickedUrl(url) {
+function getCompareData(url) {
   const datepicker = document.getElementById('datepicker');
-  //console.log('url ' + http_host + url + ' -> ' + datepicker.getAttribute('data-destination') );
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
-    if (datepicker.getAttribute('data-destination') == 'comparecanvas') {
-      compareWithDate = true;
-      const datechoice = document.getElementById('datechoice');
-      const year = parseInt(url.substring(1, 5));
-      const month = parseInt(url.substring(6, url.lastIndexOf('/'))) - 1
-      const mday = parseInt(url.substring(url.lastIndexOf('/') + 1, url.length - 4));
-      const date = new Date(year, month, mday);
-      const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-      datechoice.innerHTML = date.toLocaleDateString('nl-NL', options);
-      datechoice.style.color = compareColor;
-      savedCompareData = xhttp.responseText;
-      drawGraph(xhttp.responseText, true);
+    if (this.readyState == 4) {
+      switch (this.status) {
+        case 200 :
+          const year = parseInt(url.substring(1, 5));
+          const month = parseInt(url.substring(6, url.lastIndexOf('/'))) - 1
+          const mday = parseInt(url.substring(url.lastIndexOf('/') + 1, url.length - 4));
+          const date = new Date(year, month, mday);
+          const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
+          const datechoice = document.getElementById('datechoice');
+          datechoice.innerHTML = date.toLocaleDateString('nl-NL', options);
+          datechoice.style.color = compareColor;
+          savedCompareData = xhttp.responseText;
+          drawGraph(xhttp.responseText, true);
+        break;
+        case 404 :
+          console.log('404');
+        break
+        default: console.log('unhandled xhr status: ' + this.status);
+      }
+      datepicker.style.display = 'none';
     }
-    else {
-      savedData = xhttp.responseText;
-      drawGraph(xhttp.responseText, false);
-    }
-    datepicker.style.display = 'none';
   }
   xhttp.open('GET', http_host + url);
   xhttp.send();
 }
-
-function currentDayEqualsToday() {
-  const today = new Date();
-  const current = new Date(currentDay);
-  return (current.getFullYear() == today.getFullYear() && current.getMonth() == today.getMonth() && current.getDate() == today.getDate());
-}
-
 
 ready(event => {
   const oneday = 86400 * 1000;
@@ -494,7 +517,7 @@ ready(event => {
         showAvailableDays();
       break;
       case 'days' :
-        getPickedUrl(e.target.value);
+        getCompareData(e.target.value);
       break;
       default : console.log('unhandled change on id ' + e.target.id);
     }
@@ -512,18 +535,17 @@ ready(event => {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         savedCompareData = '';
-        compareWithDate = false;
       break;
       default : console.log('unhandled mouseup on id ' + e.target.id);
     }
   });
 
   document.getElementById('datechoice').addEventListener('mouseup', function() {
+    document.getElementById('feedbackmsg').style.display = 'none';
     var datepicker = document.getElementById('datepicker');
     datepicker.innerHTML = '';
     datepicker.style.display = (datepicker.style.display == 'block') ? 'none' : 'block';
-    datepicker.setAttribute('data-destination', 'comparecanvas');
-    document.getElementById('feedbackmsg').style.display = 'none';
+    if (datepicker.style.display == 'none') return;
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
       if (this.readyState == 4) {
@@ -543,7 +565,7 @@ ready(event => {
           case 404 :
             console.log('404');
           break;
-          default : console.log('unhandled xhr status code ' + this.status);
+          default : console.log('unhandled http status code ' + this.status);
         }
       }
     }
@@ -563,50 +585,6 @@ ready(event => {
       ws.refresh();
   });
 })
-
-function drawGraphItem(item, toCompareCanvas){
-  if (!item) return;
-  const itemdata = item.split(' ');
-  const tm = new Date(parseInt(itemdata[0]) * 1000);
-  const currentUse = parseInt(itemdata[1]);
-  if (currentUse < lowestUse) {
-    lowestUse = currentUse;
-    lowtime = tm;
-  }
-  else if (currentUse > highestUse) {
-    highestUse = currentUse;
-    hightime = tm;
-  }
-  const secondstoday = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
-  const xpos = map(secondstoday - 30, 0, 86400, 0, 1440);
-  const canvas = document.getElementById(toCompareCanvas ? 'compareGraph' : 'dayGraph');
-  const ctx = canvas.getContext('2d');
-  ctx.beginPath();
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = toCompareCanvas ? compareColor : 'white';
-  ctx.moveTo(xpos, canvas.height);
-  const ypos = map(currentUse, 0, currentRange, canvas.height, 0);
-  ctx.lineTo(xpos, ypos);
-  ctx.stroke();
-}
-
-// https://reactgo.com/format-date-time-javascript/
-function updateDate(tm){
-  const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-  document.getElementById('date').innerHTML = tm.toLocaleDateString('nl-NL', options);
-}
-
-function updateFooter(){
-  const options = {hour: 'numeric', minute: '2-digit', hour12: false};
-  var html = reboots ? '<span class="footer">' + reboots + ' reboot(s)</span>' : '';
-  html += '<span class="footer">laagste verbruik: ' + lowestUse + ' W om ' + lowtime.toLocaleTimeString('nl-NL', options) + '</span>';
-  html += '<span class="footer">hoogste verbruik: ' + highestUse + ' W om ' + hightime.toLocaleTimeString('nl-NL', options) + '</span>';
-  document.getElementById('footerbox').innerHTML = html;
-}
-
-function map(x,in_min,in_max,out_min,out_max){
-  return(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
 
 function drawBackground() {
   const canvas = document.getElementById('background');
@@ -644,6 +622,32 @@ function drawBackground() {
   }
 }
 
+function drawGraphItem(item, toCompareCanvas){
+  if (!item) return;
+  const itemdata = item.split(' ');
+  const tm = new Date(parseInt(itemdata[0]) * 1000);
+  const currentUse = parseInt(itemdata[1]);
+  if (currentUse < lowestUse) {
+    lowestUse = currentUse;
+    lowtime = tm;
+  }
+  else if (currentUse > highestUse) {
+    highestUse = currentUse;
+    hightime = tm;
+  }
+  const secondstoday = tm.getSeconds() + tm.getMinutes() * 60 + tm.getHours() * 3600;
+  const xpos = map(secondstoday - 30, 0, 86400, 0, 1440);
+  const canvas = document.getElementById(toCompareCanvas ? 'compareGraph' : 'dayGraph');
+  const ctx = canvas.getContext('2d');
+  ctx.beginPath();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = toCompareCanvas ? compareColor : 'white';
+  ctx.moveTo(xpos, canvas.height);
+  const ypos = map(currentUse, 0, currentRange, canvas.height, 0);
+  ctx.lineTo(xpos, ypos);
+  ctx.stroke();
+}
+
 function drawGraph(rawdata, toCompareCanvas){
   if (!rawdata) return;
   const canvas = document.getElementById(toCompareCanvas ? 'compareGraph' : 'dayGraph');
@@ -679,13 +683,6 @@ function drawGraph(rawdata, toCompareCanvas){
   reboots = 0;
   document.getElementById("feedbackmsg").style.display = 'none';
 };
-
-function setRange(newrange){
-  currentRange = newrange;
-  drawBackground();
-  drawGraph(savedData, false);
-  drawGraph(savedCompareData, true);
-}
 </script>
 </body>
 </html>
