@@ -20,7 +20,7 @@
 
 #define USE_WS_BRIDGE              true                      /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
 
-const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* bridge adress */
+const char*    WS_BRIDGE_HOST =    "192.168.0.106";          /* bridge adress */
 const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
 const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 
@@ -146,7 +146,7 @@ void setup() {
     oled.drawString(oled.width() >> 1, 25, "Syncing NTP...");
     oled.display();
   }
-  Serial.println("syncing NTP...");
+  Serial.println("syncing NTP");
 
   /* sync the clock with ntp */
   configTzTime(TIMEZONE, NTP_POOL);
@@ -197,6 +197,9 @@ void setup() {
     request->send(response);
   });
 
+  static const char* CACHE_CONTROL_HEADER{"Cache-Control"};
+  static const char* CACHE_CONTROL_NOCACHE{"no-store, max-age=0"};
+
   http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * request) {
     File root = SD.open("/");
     // TODO: check that the folders are at least plausibly named for a /year thing
@@ -209,6 +212,7 @@ void setup() {
         response->printf("%s\n", item.name());
       item = root.openNextFile();
     }
+    response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
     request->send(response);
   });
 
@@ -227,6 +231,7 @@ void setup() {
         response->printf("%s\n", item.name());
       item = path.openNextFile();
     }
+    response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
     request->send(response);
   });
 
@@ -245,6 +250,7 @@ void setup() {
         response->printf("%s\n", item.name());
       item = path.openNextFile();
     }
+    response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
     request->send(response);
   });
 
