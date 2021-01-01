@@ -369,7 +369,8 @@ function showAvailableDays(){
           var html = '<p id="daychoice"><label for="days">dag</label>';
           html += '<select name="days" id="days">';
           this.responseText.split('\n').forEach(function(item){
-            if (item) html += '<option value="' + item + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
+            console.log(item);
+            if (item) html += '<option value="' + item.toLowerCase() + '">' + item.substring(item.lastIndexOf('/') + 1, item.indexOf('.')) + '</option>';
           });
           html += '<option selected value=""></option>';
           html += '</select></p>';
