@@ -10,7 +10,7 @@
 
 #include "wifisetup.h"
 #include "index_htm_gz.h"
-#include "vandaag_htm_gz.h"
+#include "dagelijks_htm_gz.h"
 
 #if defined(SH1106_OLED)
 #include <SH1106.h>                /* Install via 'Manage Libraries' in Arduino IDE -> https://github.com/ThingPulse/esp8266-oled-ssd1306 */
@@ -20,7 +20,7 @@
 
 #define USE_WS_BRIDGE              true                      /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
 
-const char*    WS_BRIDGE_HOST =    "192.168.0.177";          /* bridge adress */
+const char*    WS_BRIDGE_HOST =    "192.168.0.106";          /* bridge adress */
 const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
 const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 
@@ -83,17 +83,23 @@ void connectToWebSocketBridge() {
   ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
 }
 
+const char* CACHE_CONTROL_HEADER{"Cache-Control"};
+const char* CACHE_CONTROL_NOCACHE{"no-store, max-age=0"};
+
 void updateFileHandlers(const tm& now) {
   static char path[16];
   snprintf(path, sizeof(path), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
+
+  ESP_LOGD(TAG, "Current logfile: %s", path);
 
   static AsyncCallbackWebHandler* currentLogFileHandler;
   http_server.removeHandler(currentLogFileHandler);
   currentLogFileHandler = &http_server.on(path, HTTP_GET, [] (AsyncWebServerRequest * request) {
     if (!SD.exists(path)) return request->send(404);
     AsyncWebServerResponse *response = request->beginResponse(SD, path);
-    response->addHeader("Cache-Control", "no-store, max-age=0");
+    response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
     request->send(response);
+    ESP_LOGD(TAG, "Request for current logfile");
   });
 
   static AsyncStaticWebHandler* staticFilesHandler;
@@ -140,8 +146,10 @@ void setup() {
   if (oledFound) {
     oled.clear();
     oled.drawString(oled.width() >> 1, 0, WiFi.localIP().toString());
+    oled.drawString(oled.width() >> 1, 25, "Syncing NTP...");
     oled.display();
   }
+  Serial.println("syncing NTP");
 
   /* sync the clock with ntp */
   configTzTime(TIMEZONE, NTP_POOL);
@@ -170,7 +178,7 @@ void setup() {
   static const char* HEADER_LASTMODIFIED{"Last-Modified"};
 
   static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
-  static const char* CONTENT_ENCODING_VALUE{"gzip"};
+  static const char* CONTENT_ENCODING_GZIP{"gzip"};
 
   http_server.on("/robots.txt", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(200, HTML_MIMETYPE, "User-agent: *\nDisallow: /\n");
@@ -180,44 +188,73 @@ void setup() {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
     AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm_gz, index_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_VALUE);
+    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
     request->send(response);
   });
 
-  http_server.on("/vandaag", HTTP_GET, [](AsyncWebServerRequest * request) {
+  http_server.on("/daggrafiek", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, vandaag_htm_gz, vandaag_htm_gz_len);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, dagelijks_htm_gz, dagelijks_htm_gz_len);
     response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_VALUE);
+    response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
     request->send(response);
   });
 
-  /* icons from https://material.io/resources/icons/?icon=navigate_next&style=baseline */
-  /*
-    static const char* SVG_MIMETYPE{"image/svg+xml"};
+  http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * request) {
+    File root = SD.open("/");
+    // TODO: check that the folders are at least plausibly named for a /year thing
+    if (!root || !root.isDirectory()) return request->send(503);
+    File item = root.openNextFile();
+    if (!item) return request->send(404);
+    AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+    while (item) {
+      if (item.isDirectory())
+        response->printf("%s\n", item.name());
+      item = root.openNextFile();
+    }
+    response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
+    request->send(response);
+  });
 
-    static const char* ICON_PREV = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>)====";
-    static const char* ICON_NEXT = R"====(<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>)====";
+  http_server.on("/maanden", HTTP_GET, [](AsyncWebServerRequest * request) {
+    const char* year{"jaar"};
+    if (!request->hasArg(year)) return request->send(400);
+    if (!SD.exists(request->arg(year))) return request->send(404);
+    // TODO: check that the folders are at least plausibly named for a /year/month thing
+    File path = SD.open(request->arg(year));
+    if (!path || !path.isDirectory()) return request->send(503);
+    File item = path.openNextFile();
+    if (!item) return request->send(404);
+    AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+    while (item) {
+      if (item.isDirectory())
+        response->printf("%s\n", item.name());
+      item = path.openNextFile();
+    }
+    response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
+    request->send(response);
+  });
 
-    static const char* ACCEPT_ENCODING_HEADER{"Accept-Encoding"};
-    static const char* ACCEPT_ENCODING_VALUE{"Vary"};
-
-    http_server.on("/previous.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
-      if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-      AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_PREV);
-      response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-      response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
-      request->send(response);
-    });
-
-    http_server.on("/next.svg", HTTP_GET, [] (AsyncWebServerRequest * request) {
-      if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-      AsyncWebServerResponse *response = request->beginResponse_P(200, SVG_MIMETYPE, ICON_NEXT);
-      response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
-      response->addHeader(ACCEPT_ENCODING_VALUE, ACCEPT_ENCODING_HEADER);
-      request->send(response);
-    });
-  */
+  http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * request) {
+    // TODO: check that the file is at least plausibly named for a /year/month/day thing
+    const char* month {
+      "maand"
+    };
+    if (!request->hasArg(month)) return request->send(400);
+    if (!SD.exists(request->arg(month))) return request->send(404);
+    File path = SD.open(request->arg(month));
+    if (!path || !path.isDirectory()) return request->send(503);
+    File item = path.openNextFile();
+    if (!item) return request->send(404);
+    AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+    while (item) {
+      if (!item.isDirectory())
+        response->printf("%s\n", item.name());
+      item = path.openNextFile();
+    }
+    response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
+    request->send(response);
+  });
 
   updateFileHandlers(now);
 
