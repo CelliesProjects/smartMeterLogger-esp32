@@ -1,5 +1,7 @@
 # smartMeterLogger-esp32
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/5abe0cc3faa54a05a6acfe6b68e5eac6)](https://app.codacy.com/gh/CelliesProjects/smartMeterLogger-esp32?utm_source=github.com&utm_medium=referral&utm_content=CelliesProjects/smartMeterLogger-esp32&utm_campaign=Badge_Grade)
+
 ## About
 
 `smartMeterLogger-esp32` connects to a smart meter (slimme meter) and logs the electricity use per minute to an sdcard. Saved data can be viewed in a html5 compatible browser on your phone/laptop/desktop.
