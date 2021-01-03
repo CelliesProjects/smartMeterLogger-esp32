@@ -51,7 +51,6 @@ SmartMeterLogger is developed on LilyGo TTGO T7 boards. The LilyGo TTGO T7 has a
 ![T7 pic](img/t7.jpg)
 
 Below you can see how to enable the external antenna. Move the zero ohm resistor from position 1-2 to position 3-4. Or remove the resistor and solder position 3-4 closed.
-<br>Another nice thing with an external antenna is that the current needed to operate the logger drops below 250mA so the logger can be powered by the smartmeter.
 
 ![external-config](https://user-images.githubusercontent.com/17033305/78676790-34fd1080-78e7-11ea-8bb0-aee88efe75a6.jpg)
 
