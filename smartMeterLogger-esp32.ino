@@ -1,5 +1,3 @@
-#define SH1106_OLED              /* uncomment to compile for SH1106 instead of SSD1306 */
-
 #include <SD.h>
 #include <FS.h>
 #include <driver/uart.h>
@@ -18,27 +16,12 @@
 #include <SSD1306.h>               /* In same library as SH1106 */
 #endif
 
-#define USE_WS_BRIDGE              true                      /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
-
-const char*    WS_BRIDGE_HOST =    "192.168.0.106";          /* bridge adress */
-const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
-const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
-
 #define  SAVE_TIME_MIN                 (1)                   /* data save interval in minutes */
 
 /* settings for smartMeter */
 #define RXD_PIN                        (36)
 #define BAUDRATE                       (115200)
 #define UART_NR                        (UART_NUM_2)
-
-/* settings for a ssd1306/sh1106 oled screen */
-#define OLED_ADDRESS                   (0x3C)
-#define I2C_SDA_PIN                    (21)
-#define I2C_SCL_PIN                    (22)
-
-/* settings for ntp time sync */
-const char* NTP_POOL =                  "nl.pool.ntp.org";
-const char* TIMEZONE =                  "CET-1CEST,M3.5.0/2,M10.5.0/3"; /* Central European Time - see http://www.remotemonitoringsystems.ca/time-zone-abbreviations.php */
 
 const char*     WS_RAW_URL = "/raw";
 const char*     WS_EVENTS_URL = "/events";
@@ -109,7 +92,7 @@ void setup() {
   /* check if oled display is present */
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   Wire.beginTransmission(OLED_ADDRESS);
-  uint8_t error = Wire.endTransmission();
+  const uint8_t error = Wire.endTransmission();
   if (error)
     Serial.println("no SSD1306/SH1106 oled found.");
   else {
