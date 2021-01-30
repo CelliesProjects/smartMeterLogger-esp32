@@ -442,8 +442,6 @@ bool appendToFile(const char* path, const char* message) {
 
 void process(const String& telegram) {
 
-  ws_server_raw.textAll(telegram);
-
   using decodedFields = ParsedData <
                         /* FixedValue */ energy_delivered_tariff1,
                         /* FixedValue */ energy_delivered_tariff2,
@@ -462,6 +460,8 @@ void process(const String& telegram) {
   */
   if (res.err || !data.all_present())
     return;
+
+  ws_server_raw.textAll(telegram);
 
   static struct {
     uint32_t t1Start;
