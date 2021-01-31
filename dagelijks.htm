@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script>
-const debugip="192.168.0.104";  //change this to the esp32 ip for remote running of this page
+const debugip="192.168.0.106";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -140,8 +140,8 @@ select:disabled{
 .navbutton:active,.rangebutton:active {
   transform:scale(0.95);
 }
-#nographics{
-  line-height:200px;
+#currentuse{
+  //line-height:120px;
   display:none;
   font-size:115px;
   white-space:nowrap;
@@ -170,7 +170,7 @@ select:disabled{
     display:none;
   }
   #currentdate{display:block;}
-  #nographics{display:block;}
+  #currentuse{display:block;}
   #header,#current{display:none;}
   #footerbox,#compare{display:none;}
 
@@ -219,6 +219,11 @@ select:disabled{
   font-size:35px;
   line-height:10px;
 }
+.currenttext{
+  font-size:20px;
+  margin:0;
+  padding:0;
+}
 .navbutton{
   vertical-align:middle;
 }
@@ -260,7 +265,7 @@ select:disabled{
   <button type="button" id="nextbutton" class="navbutton"><svg class="navicon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
 </div>
 <p id="currentdate">&nbsp;</p>
-<div id="nographics"></div>
+<div id="currentuse"></div>
 <div id="footerbox"></div>
 <script>
 const http_host = "http://" + (window.location.hostname ? window.location.hostname : debugip);
@@ -285,7 +290,7 @@ function ready(callbackFunction){
     document.addEventListener("DOMContentLoaded", callbackFunction);
 }
 
-function datumUrl(date) {
+function logFileUrl(date) {
   const datum = new Date(date);
   return http_host + '/' + datum.getFullYear() + '/' + (datum.getMonth() + 1) + '/' + datum.getDate() + '.log';
 }
@@ -328,33 +333,32 @@ function setRange(newrange){
   drawGraph(savedCompareData, true);
 }
 
-function getData(time, callBack, toCompareCanvas) {
+function getData(date, callBack, toCompareCanvas) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
-    const date = new Date(time);
     if (this.readyState == 4) {
       switch (this.status) {
         case 200 :
           if (!toCompareCanvas) {
             savedData = this.responseText;
-            currentDay = time;
+            currentDay = date;
           }
           else {
             savedCompareData = this.responseText;
-            compareDay = time;
+            compareDay = date;
           }
           callBack(this.responseText, toCompareCanvas);
         break;
         case 404 : {
           const options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false};
-          document.getElementById('feedbackmsg').innerHTML = 'geen data aanwezig van <span class="nowrap">' + date.toLocaleDateString('nl-NL', options) + '</span>';
+          document.getElementById('feedbackmsg').innerHTML = 'geen data aanwezig van <span class="nowrap">' + new Date(date).toLocaleDateString('nl-NL', options) + '</span>';
         }
         break;
         default : console.log("unhandled xhr status code " + this.status);
       }
     }
   }
-  xhttp.open('GET', datumUrl(time), true);
+  xhttp.open('GET', logFileUrl(date), true);
   xhttp.send();
 }
 
@@ -375,7 +379,7 @@ function showAvailableMonths(){
           const savedYear = document.getElementById('years').selectedIndex;
           document.getElementById('datepicker').innerHTML += html;
           //restore the saved index
-          const years = document.getElementById('years');
+          var years = document.getElementById('years');
           years.selectedIndex = savedYear;
           years.setAttribute('disabled', true)
           document.getElementById('months').focus();
@@ -458,12 +462,12 @@ function getCompareData(url) {
 
 ready(event => {
   const oneday = 86400 * 1000;
-  var ws = new ReconnectingWebSocket(ws_host, null, {debug:false, reconnectInterval:3000});
+  var ws = new ReconnectingWebSocket(ws_host);
 
   ws.onmessage = function(e){
     if (e.data.startsWith('current\n')) {
       const use = e.data.substring(e.data.indexOf('\n') + 1).split('\n');
-      document.getElementById('nographics').innerHTML = use[0] + '<span id="smallunit"> w</span>';
+      document.getElementById('currentuse').innerHTML = '<p class="currenttext">huidig verbruik</p>' + use[0] + '<span id="smallunit"> w</span>';
     }
     else if (e.data.startsWith('electric_saved\n')) {
       if (currentDayEqualsToday()) {
@@ -482,8 +486,15 @@ ready(event => {
     }
   }
 
-  ws.onclose = function(event){console.log('[WebSocket] Connection died, code='  + event.code + ' reason=' + event.reason);}
-  ws.onerror = function(error){console.log('[WebSocket] ' + ws_host + ' Error: ' + error.message);}
+  ws.onclose = function(event){
+    console.log('[WebSocket] Connection died, code='  + event.code + ' reason=' + event.reason);
+    ws.open();
+  }
+
+  ws.onerror = function(error){
+    console.log('[WebSocket] ' + ws_host + ' Error: ' + error.message);
+    ws.refresh();
+  }
 
   document.getElementById('prevbutton').addEventListener('mouseup', function() {
     const previousday = new Date(currentDay).getTime() - oneday;
@@ -570,7 +581,7 @@ ready(event => {
   document.getElementById('currentdate').innerHTML = new Date().toLocaleDateString('nl-NL', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour12: false});
 
   drawBackground();
-  currentDay = new Date(Date.now());
+  currentDay = new Date();
   document.getElementById('startRange').focus();
 
   document.addEventListener('visibilitychange', e =>{
