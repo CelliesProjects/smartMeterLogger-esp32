@@ -6,7 +6,7 @@
 #include <WebSocketsClient.h>      /* https://github.com/Links2004/arduinoWebSockets */
 #include <dsmr.h>                  /* https://github.com/matthijskooijman/arduino-dsmr */
 
-#include "wifisetup.h"
+#include "setup.h"
 #include "index_htm_gz.h"
 #include "dagelijks_htm_gz.h"
 
@@ -17,11 +17,6 @@
 #endif
 
 #define  SAVE_TIME_MIN                 (1)                   /* data save interval in minutes */
-
-/* settings for smartMeter */
-#define RXD_PIN                        (36)
-#define BAUDRATE                       (115200)
-#define UART_NR                        (UART_NUM_2)
 
 const char*     WS_RAW_URL = "/raw";
 const char*     WS_EVENTS_URL = "/events";
@@ -211,12 +206,10 @@ void setup() {
   });
 
   http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * request) {
-    // TODO: check that the file is at least plausibly named for a /year/month/day thing
-    const char* month {
-      "maand"
-    };
+    const char* month{"maand"};
     if (!request->hasArg(month)) return request->send(400);
     if (!SD.exists(request->arg(month))) return request->send(404);
+    // TODO: check that the file is at least plausibly named for a /year/month/day thing
     File path = SD.open(request->arg(month));
     if (!path || !path.isDirectory()) return request->send(503);
     File item = path.openNextFile();
