@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script>
-const debugip="192.168.0.109";  //change this to the esp32 ip for remote running of this page
+const debugip="192.168.0.90";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="minimal-ui,width=device-width,initial-scale=1.0,user-scalable=no" />
@@ -137,6 +137,22 @@ ready(event => {
   ws.onopen = function(){console.log('[WebSocket] Connected to ' + ws_host);}
   ws.onclose = function(event){console.log('[WebSocket] Connection died, code='  + event.code + ' reason=' + event.reason);}
   ws.onerror = function(error){console.log('[WebSocket] ' + ws_host + ' Error: ' + error.message);}
+
+
+  document.addEventListener('visibilitychange', e=>{
+    switch(document.visibilityState) {
+      case 'visible' : {
+        ws.open();
+      }
+      break;
+      case 'hidden' : {
+        ws.close();
+      }
+      default : {}
+    }
+  });
+
+  document.addEventListener("unload", e=>{ws.close();});
 });
 </script>
 </body>
