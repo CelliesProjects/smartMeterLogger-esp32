@@ -21,14 +21,14 @@ Compiles in the Arduino IDE.
 ## How to use
 
 1.  Format an sdcard with a fat32 filesystem and insert the card in the reader. 
-2.  Open the sketch and change your credentials in `wifisetup.h`.
-3.  (Optional) In `smartMeterLogger-esp32.ino` uncomment `#define SH1106_OLED` if you compile for sh1106 instead of ssd1306 and set the i2c pins (and address) for your oled screen.<br>If you do not use a oled you can leave this setting as it is.
+2.  Open the sketch and change your credentials and system setup in `setup.h`.
+3.  (Optional) In `setup.h` uncomment `#define SH1106_OLED` if you compile for sh1106 instead of ssd1306 and set the i2c pins (and address) for your oled screen.<br>If you do not use a oled you can leave this setting as it is.
 4.  Save all files and flash the sketch to your esp32.
 5.  Connect your esp32 to the smart meter.<br>Take note that to read from the smartmeter the `DATA` signal has to be [inverted and level shifted](#level-shifter--inverter).
 6.  If you added a ssd1306/sh1106 oled screen, the ip address (or an error) will be visible on the screen.<br>If there is no oled you can check the ip address on the serial port in the Arduino IDE.
 7.  Browse to the ip address of your esp32 to see your current energy use.
 
-If you have a garbled screen you most likely compiled for the wrong oled type.<br>Try to comment/uncomment `#define SH1106_OLED` to solve this.
+If you have a garbled oled screen you most likely compiled for the wrong oled type.<br>Try to comment/uncomment `//#define SH1106_OLED` in `setup.h` to solve this.
 
 ## Needed libraries
 
