@@ -20,6 +20,8 @@ Compiles in the Arduino IDE.
 
 ## How to use
 
+Use the esp32 Arduino Core 1.6.0 (or lower) because the dsmr library does not compile with 2.0.0-alpha. See https://github.com/matthijskooijman/arduino-dsmr/issues/39 and https://github.com/matthijskooijman/arduino-dsmr/issues/36.
+
 1.  Format an sdcard with a fat32 filesystem and insert the card in the reader. 
 2.  Open the sketch and change your credentials and system setup in `setup.h`.
 3.  (Optional) In `setup.h` uncomment `#define SH1106_OLED` if you compile for sh1106 instead of ssd1306 and set the i2c pins (and address) for your oled screen.<br>If you do not use a oled you can leave this setting as it is.
