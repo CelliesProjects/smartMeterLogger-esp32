@@ -8,12 +8,14 @@ const char* WIFI_PASSWORD =        "xxx";
 #define BAUDRATE                   (115200)
 #define UART_NR                    (UART_NUM_2)
 
-#define USE_WS_BRIDGE              false                     /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
+constexpr const bool USE_WS_BRIDGE = false;                  /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
 
+/* settings for websocket bridge */
 const char*    WS_BRIDGE_HOST =    "192.168.0.106";          /* bridge name or ip*/
 const uint16_t WS_BRIDGE_PORT =    80;                       /* bridge port */
 const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 
+/* settings for static IP address */
 #define SET_STATIC_IP false                                  /* If SET_STATIC_IP is set to true then STATIC_IP, GATEWAY, SUBNET and PRIMARY_DNS have to be set to some sane values */
 
 const IPAddress STATIC_IP          (192, 168, 0, 90);        /* This should be outside your router dhcp range! */

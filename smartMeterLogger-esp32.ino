@@ -257,14 +257,16 @@ void saveAverage(const tm& timeinfo) {
     String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
 
     File folder = SD.open(path);
-    if (!folder && !SD.mkdir(path))
+    if (!folder && !SD.mkdir(path)) {
         ESP_LOGE(TAG, "could not create folder %s", path);
+    }
 
     path.concat("/" + String(timeinfo.tm_mon + 1));     /* add the current month to the path */
 
     folder = SD.open(path);
-    if (!folder && !SD.mkdir(path))
+    if (!folder && !SD.mkdir(path)) {
         ESP_LOGE(TAG, "could not create folder %s", path);
+    }
 
     path.concat("/" + String(timeinfo.tm_mday) + ".log");   /* add the filename to the path */
 
@@ -313,22 +315,25 @@ void loop() {
     }
     else {
         if (smartMeter.available()) {
-            const auto TIMEOUT_MS = 100;
             const auto BUFFERSIZE = 1024;
-            char telegram[BUFFERSIZE];
-            int posInBuffer = 0;
-            const unsigned long startOfMessage = millis();
-            size_t bytes = smartMeter.available();
-            while (millis() - startOfMessage < TIMEOUT_MS && posInBuffer + bytes < BUFFERSIZE) {
-                int c = smartMeter.read(telegram + posInBuffer, bytes);
-                posInBuffer += c;
-                delay(1);
+            static char telegram[BUFFERSIZE];
+
+            const unsigned long START_MS = millis();
+            const auto TIMEOUT_MS = 100;
+            int size = 0;
+            auto bytes = smartMeter.available();
+
+            while (millis() - START_MS < TIMEOUT_MS && size + bytes < BUFFERSIZE) {
+                size += smartMeter.read(telegram + size, bytes);
+                delay(5);
                 bytes = smartMeter.available();
             }
-            ESP_LOGD(TAG, "telegram: %s", telegram);
-            process(telegram);
+
+            ESP_LOGD(TAG, "telegram received - %i bytes:\n%s", size, telegram);
+            process(telegram, size);
         }
     }
+    delay(1);
 }
 
 char currentUseString[200];
@@ -381,7 +386,7 @@ void ws_bridge_onEvents(WStype_t type, uint8_t* payload, size_t length) {
         case WStype_TEXT :
             ESP_LOGD(TAG, "payload: %s", payload);
             payload[length] = 0;
-            process(reinterpret_cast<char*>(payload));
+            process(reinterpret_cast<char*>(payload), length);
             break;
 
         case WStype_ERROR :
@@ -417,7 +422,7 @@ bool appendToFile(const char* path, const char* message) {
     return true;
 }
 
-void process(const String& telegram) {
+void process(const char* telegram, const int size) {
 
     using decodedFields = ParsedData <
                           /* FixedValue */ energy_delivered_tariff1,
@@ -427,10 +432,10 @@ void process(const String& telegram) {
                           /* TimestampedFixedValue */ gas_delivered
                           >;
     decodedFields data;
-    const ParseResult<void> res = P1Parser::parse(&data, telegram.c_str(), telegram.length());
+    const ParseResult<void> res = P1Parser::parse(&data, telegram, size);
     /*
         if (res.err)
-        ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram.c_str(), telegram.c_str() + telegram.length()).c_str());
+        ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram, telegram + size);
 
         if (!data.all_present())
         ESP_LOGE(TAG, "Could not decode all fields");
