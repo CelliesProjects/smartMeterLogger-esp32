@@ -16,7 +16,7 @@
 #include <SSD1306.h>               /* In same library as SH1106 */
 #endif
 
-#define  SAVE_TIME_MIN                 (1)                   /* data save interval in minutes */
+#define  SAVE_TIME_MIN (1)         /* data save interval in minutes */
 
 const char*     WS_RAW_URL = "/raw";
 const char*     WS_EVENTS_URL = "/events";
@@ -64,9 +64,9 @@ void updateFileHandlers(const tm& now) {
 
     static AsyncCallbackWebHandler* currentLogFileHandler;
     http_server.removeHandler(currentLogFileHandler);
-    currentLogFileHandler = &http_server.on(path, HTTP_GET, [] (AsyncWebServerRequest * request) {
+    currentLogFileHandler = &http_server.on(path, HTTP_GET, [] (AsyncWebServerRequest * const request) {
         if (!SD.exists(path)) return request->send(404);
-        AsyncWebServerResponse *response = request->beginResponse(SD, path);
+        AsyncWebServerResponse* const response = request->beginResponse(SD, path);
         response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
         request->send(response);
         ESP_LOGD(TAG, "Request for current logfile");
@@ -150,33 +150,33 @@ void setup() {
     static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
     static const char* CONTENT_ENCODING_GZIP{"gzip"};
 
-    http_server.on("/robots.txt", HTTP_GET, [](AsyncWebServerRequest * request) {
+    http_server.on("/robots.txt", HTTP_GET, [](AsyncWebServerRequest * const request) {
         request->send(200, HTML_MIMETYPE, "User-agent: *\nDisallow: /\n");
     });
 
-    http_server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    http_server.on("/", HTTP_GET, [](AsyncWebServerRequest * const request) {
         if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-        AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm_gz, index_htm_gz_len);
+        AsyncWebServerResponse* const response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm_gz, index_htm_gz_len);
         response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
         response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
         request->send(response);
     });
 
-    http_server.on("/daggrafiek", HTTP_GET, [](AsyncWebServerRequest * request) {
+    http_server.on("/daggrafiek", HTTP_GET, [](AsyncWebServerRequest * const request) {
         if (htmlUnmodified(request, modifiedDate)) return request->send(304);
-        AsyncWebServerResponse *response = request->beginResponse_P(200, HTML_MIMETYPE, dagelijks_htm_gz, dagelijks_htm_gz_len);
+        AsyncWebServerResponse* const response = request->beginResponse_P(200, HTML_MIMETYPE, dagelijks_htm_gz, dagelijks_htm_gz_len);
         response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
         response->addHeader(CONTENT_ENCODING_HEADER, CONTENT_ENCODING_GZIP);
         request->send(response);
     });
 
-    http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * request) {
+    http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * const request) {
         File root = SD.open("/");
         // TODO: check that the folders are at least plausibly named for a /year thing
         if (!root || !root.isDirectory()) return request->send(503);
         File item = root.openNextFile();
         if (!item) return request->send(404);
-        AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+        AsyncResponseStream* const response = request->beginResponseStream(HTML_MIMETYPE);
         while (item) {
             if (item.isDirectory())
                 response->printf("%s\n", item.name());
@@ -186,7 +186,7 @@ void setup() {
         request->send(response);
     });
 
-    http_server.on("/maanden", HTTP_GET, [](AsyncWebServerRequest * request) {
+    http_server.on("/maanden", HTTP_GET, [](AsyncWebServerRequest * const request) {
         const char* year{"jaar"};
         if (!request->hasArg(year)) return request->send(400);
         if (!SD.exists(request->arg(year))) return request->send(404);
@@ -195,7 +195,7 @@ void setup() {
         if (!path || !path.isDirectory()) return request->send(503);
         File item = path.openNextFile();
         if (!item) return request->send(404);
-        AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+        AsyncResponseStream* const response = request->beginResponseStream(HTML_MIMETYPE);
         while (item) {
             if (item.isDirectory())
                 response->printf("%s\n", item.name());
@@ -205,7 +205,7 @@ void setup() {
         request->send(response);
     });
 
-    http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * request) {
+    http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * const request) {
         const char* month{"maand"};
         if (!request->hasArg(month)) return request->send(400);
         if (!SD.exists(request->arg(month))) return request->send(404);
@@ -214,7 +214,7 @@ void setup() {
         if (!path || !path.isDirectory()) return request->send(503);
         File item = path.openNextFile();
         if (!item) return request->send(404);
-        AsyncResponseStream *response = request->beginResponseStream(HTML_MIMETYPE);
+        AsyncResponseStream* const response = request->beginResponseStream(HTML_MIMETYPE);
         while (item) {
             if (!item.isDirectory())
                 response->printf("%s\n", item.name());
@@ -226,7 +226,7 @@ void setup() {
 
     updateFileHandlers(now);
 
-    http_server.onNotFound([](AsyncWebServerRequest * request) {
+    http_server.onNotFound([](AsyncWebServerRequest * const request) {
         request->send(404);
     });
 
@@ -287,13 +287,15 @@ void saveAverage(const tm& timeinfo) {
         booted = false;
     }
 
-    ESP_LOGI(TAG, "%i samples - saving '%s' to file '%s'", numberOfSamples, message.c_str(), path.c_str());
+    ESP_LOGD(TAG, "%i samples - saving '%s' to file '%s'", numberOfSamples, message.c_str(), path.c_str());
 
     appendToFile(path.c_str(), message.c_str());
 
     average = 0;
     numberOfSamples = 0;
 }
+
+static unsigned long lastMessageMs = millis();
 
 void loop() {
     ws_server_raw.cleanupClients();
@@ -312,19 +314,27 @@ void loop() {
 
     if (USE_WS_BRIDGE) {
         ws_bridge.loop();
+
+        static const auto TIMEOUT_MS = 8000;
+
+        if (ws_bridge.isConnected() && millis() - lastMessageMs > TIMEOUT_MS) {
+            ESP_LOGW(TAG, "WebSocket bridge has received no data for %.2f seconds - reconnecting...", TIMEOUT_MS / 1000.0);
+            ws_bridge.disconnect();
+            lastMessageMs = millis();
+        }
     }
     else {
         if (smartMeter.available()) {
-            const auto BUFFERSIZE = 1024;
+            static const auto BUFFERSIZE = 1024;
             static char telegram[BUFFERSIZE];
 
             const unsigned long START_MS = millis();
-            const auto TIMEOUT_MS = 100;
+            static const auto TIMEOUT_MS = 100;
             int size = 0;
             auto bytes = smartMeter.available();
 
             while (millis() - START_MS < TIMEOUT_MS && size + bytes < BUFFERSIZE) {
-                size += smartMeter.read(telegram + size, bytes);
+                size += bytes ? smartMeter.read(telegram + size, bytes) : 0;
                 delay(5);
                 bytes = smartMeter.available();
             }
@@ -376,6 +386,7 @@ void ws_bridge_onEvents(WStype_t type, uint8_t* payload, size_t length) {
 
         case WStype_CONNECTED :
             Serial.printf("connected to websocket bridge 'ws://%s:%i%s'\n", WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
+            lastMessageMs = millis();
             break;
 
         case WStype_DISCONNECTED :
@@ -385,8 +396,8 @@ void ws_bridge_onEvents(WStype_t type, uint8_t* payload, size_t length) {
 
         case WStype_TEXT :
             ESP_LOGD(TAG, "payload: %s", payload);
-            payload[length] = 0;
             process(reinterpret_cast<char*>(payload), length);
+            lastMessageMs = millis();
             break;
 
         case WStype_ERROR :
