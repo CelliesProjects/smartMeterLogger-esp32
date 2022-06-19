@@ -5,6 +5,9 @@
 #include <ESPAsyncWebServer.h>     /* https://github.com/me-no-dev/ESPAsyncWebServer */
 #include <WebSocketsClient.h>      /* https://github.com/Links2004/arduinoWebSockets */
 #include <dsmr.h>                  /* https://github.com/matthijskooijman/arduino-dsmr */
+#include <esp32-hal-log.h>
+
+static const char* TAG = "smartMeterLogger-esp32";
 
 #include "setup.h"
 #include "index_htm_gz.h"
