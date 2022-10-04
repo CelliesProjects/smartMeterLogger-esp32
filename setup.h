@@ -21,7 +21,7 @@ const char*    WS_BRIDGE_URL =     "/raw";                   /* bridge url */
 const IPAddress STATIC_IP          (192, 168, 0, 90);        /* This should be outside your router dhcp range! */
 const IPAddress GATEWAY            (192, 168, 0, 1);         /* Set to your gateway ip address */
 const IPAddress SUBNET             (255, 255, 255, 0);       /* Usually 255,255,255,0 check in your router or pc connected to the same network */
-const IPAddress PRIMARY_DNS        (192, 168, 0, 30);        /* Check in your router */
+const IPAddress PRIMARY_DNS        (192, 168, 0, 10);        /* Check in your router */
 const IPAddress SECONDARY_DNS      (0, 0, 0, 0);             /* Check in your router */
 
 /* settings for ntp time sync */
