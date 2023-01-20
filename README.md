@@ -20,9 +20,9 @@ See also the companion app [M5EnergyUse](https://github.com/CelliesProjects/M5-e
 
 ![compare](https://user-images.githubusercontent.com/24290108/190146801-1e97c788-b5f3-4310-b483-e797b78c5fe2.png)
 
-## How to use
+## How to setup and flash
 
-Use the esp32 Arduino Core 1.6.0 (or lower) because the dsmr library does not compile with 2.0.0-alpha. See https://github.com/matthijskooijman/arduino-dsmr/issues/39 and https://github.com/matthijskooijman/arduino-dsmr/issues/36.
+Use the [latest Arduino IDE](https://github.com/arduino/arduino-ide/releases/latest) and [the latest ESP32 Arduino Core](https://github.com/espressif/arduino-esp32/releases/latest).
 
 1.  Format an sdcard with a fat32 filesystem and insert the card in the reader. 
 2.  Open the sketch and change your credentials and system setup in `setup.h`.

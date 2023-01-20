@@ -1,28 +1,26 @@
 #include <SD.h>
 #include <FS.h>
 #include <driver/uart.h>
-#include <AsyncTCP.h>              /* https://github.com/me-no-dev/AsyncTCP */
-#include <ESPAsyncWebServer.h>     /* https://github.com/me-no-dev/ESPAsyncWebServer */
-#include <WebSocketsClient.h>      /* https://github.com/Links2004/arduinoWebSockets */
-#include <dsmr.h>                  /* https://github.com/matthijskooijman/arduino-dsmr */
+#include <AsyncTCP.h>          /* https://github.com/me-no-dev/AsyncTCP */
+#include <ESPAsyncWebServer.h> /* https://github.com/me-no-dev/ESPAsyncWebServer */
+#include <WebSocketsClient.h>  /* https://github.com/Links2004/arduinoWebSockets */
+#include <dsmr.h>              /* https://github.com/matthijskooijman/arduino-dsmr */
 #include <esp32-hal-log.h>
-
-static const char* TAG = "smartMeterLogger-esp32";
 
 #include "setup.h"
 #include "index_htm_gz.h"
 #include "dagelijks_htm_gz.h"
 
 #if defined(SH1106_OLED)
-#include <SH1106.h>                /* Install via 'Manage Libraries' in Arduino IDE -> https://github.com/ThingPulse/esp8266-oled-ssd1306 */
+#include <SH1106.h> /* Install via 'Manage Libraries' in Arduino IDE -> https://github.com/ThingPulse/esp8266-oled-ssd1306 */
 #else
-#include <SSD1306.h>               /* In same library as SH1106 */
+#include <SSD1306.h> /* In same library as SH1106 */
 #endif
 
-#define  SAVE_TIME_MIN (1)         /* data save interval in minutes */
+#define SAVE_TIME_MIN (1) /* data save interval in minutes */
 
-const char*     WS_RAW_URL = "/raw";
-const char*     WS_EVENTS_URL = "/events";
+const char* WS_RAW_URL = "/raw";
+const char* WS_EVENTS_URL = "/events";
 
 WebSocketsClient ws_bridge;
 AsyncWebServer http_server(80);
@@ -43,7 +41,7 @@ struct {
 } current;
 
 time_t bootTime;
-bool oledFound{false};
+bool oledFound{ false };
 
 const char* HEADER_MODIFIED_SINCE = "If-Modified-Since";
 
@@ -56,23 +54,23 @@ void connectToWebSocketBridge() {
     ws_bridge.begin(WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
 }
 
-const char* CACHE_CONTROL_HEADER{"Cache-Control"};
-const char* CACHE_CONTROL_NOCACHE{"no-store, max-age=0"};
+const char* CACHE_CONTROL_HEADER{ "Cache-Control" };
+const char* CACHE_CONTROL_NOCACHE{ "no-store, max-age=0" };
 
 void updateFileHandlers(const tm& now) {
-    static char path[16];
+    static char path[100];
     snprintf(path, sizeof(path), "/%i/%i/%i.log", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
 
-    ESP_LOGD(TAG, "Current logfile: %s", path);
+    log_d("Current logfile: %s", path);
 
     static AsyncCallbackWebHandler* currentLogFileHandler;
     http_server.removeHandler(currentLogFileHandler);
-    currentLogFileHandler = &http_server.on(path, HTTP_GET, [] (AsyncWebServerRequest * const request) {
+    currentLogFileHandler = &http_server.on(path, HTTP_GET, [](AsyncWebServerRequest* const request) {
         if (!SD.exists(path)) return request->send(404);
         AsyncWebServerResponse* const response = request->beginResponse(SD, path);
         response->addHeader(CACHE_CONTROL_HEADER, CACHE_CONTROL_NOCACHE);
         request->send(response);
-        ESP_LOGD(TAG, "Request for current logfile");
+        log_d("Request for current logfile");
     });
 
     static AsyncStaticWebHandler* staticFilesHandler;
@@ -127,9 +125,7 @@ void setup() {
     /* sync the clock with ntp */
     configTzTime(TIMEZONE, NTP_POOL);
 
-    tm now {
-        0
-    };
+    tm now{};
 
     while (!getLocalTime(&now, 0))
         delay(10);
@@ -146,18 +142,16 @@ void setup() {
     static char modifiedDate[30];
     strftime(modifiedDate, sizeof(modifiedDate), "%a, %d %b %Y %X GMT", gmtime(&bootTime));
 
-    static const char* HTML_MIMETYPE{"text/html"};
+    static const char* HTML_MIMETYPE{ "text/html" };
+    static const char* HEADER_LASTMODIFIED{ "Last-Modified" };
+    static const char* CONTENT_ENCODING_HEADER{ "Content-Encoding" };
+    static const char* CONTENT_ENCODING_GZIP{ "gzip" };
 
-    static const char* HEADER_LASTMODIFIED{"Last-Modified"};
-
-    static const char* CONTENT_ENCODING_HEADER{"Content-Encoding"};
-    static const char* CONTENT_ENCODING_GZIP{"gzip"};
-
-    http_server.on("/robots.txt", HTTP_GET, [](AsyncWebServerRequest * const request) {
+    http_server.on("/robots.txt", HTTP_GET, [](AsyncWebServerRequest* const request) {
         request->send(200, HTML_MIMETYPE, "User-agent: *\nDisallow: /\n");
     });
 
-    http_server.on("/", HTTP_GET, [](AsyncWebServerRequest * const request) {
+    http_server.on("/", HTTP_GET, [](AsyncWebServerRequest* const request) {
         if (htmlUnmodified(request, modifiedDate)) return request->send(304);
         AsyncWebServerResponse* const response = request->beginResponse_P(200, HTML_MIMETYPE, index_htm_gz, index_htm_gz_len);
         response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
@@ -165,7 +159,7 @@ void setup() {
         request->send(response);
     });
 
-    http_server.on("/daggrafiek", HTTP_GET, [](AsyncWebServerRequest * const request) {
+    http_server.on("/daggrafiek", HTTP_GET, [](AsyncWebServerRequest* const request) {
         if (htmlUnmodified(request, modifiedDate)) return request->send(304);
         AsyncWebServerResponse* const response = request->beginResponse_P(200, HTML_MIMETYPE, dagelijks_htm_gz, dagelijks_htm_gz_len);
         response->addHeader(HEADER_LASTMODIFIED, modifiedDate);
@@ -173,7 +167,7 @@ void setup() {
         request->send(response);
     });
 
-    http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest * const request) {
+    http_server.on("/jaren", HTTP_GET, [](AsyncWebServerRequest* const request) {
         File root = SD.open("/");
         // TODO: check that the folders are at least plausibly named for a /year thing
         if (!root || !root.isDirectory()) return request->send(503);
@@ -189,8 +183,8 @@ void setup() {
         request->send(response);
     });
 
-    http_server.on("/maanden", HTTP_GET, [](AsyncWebServerRequest * const request) {
-        const char* year{"jaar"};
+    http_server.on("/maanden", HTTP_GET, [](AsyncWebServerRequest* const request) {
+        const char* year{ "jaar" };
         if (!request->hasArg(year)) return request->send(400);
         if (!SD.exists(request->arg(year))) return request->send(404);
         // TODO: check that the folders are at least plausibly named for a /year/month thing
@@ -208,8 +202,8 @@ void setup() {
         request->send(response);
     });
 
-    http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest * const request) {
-        const char* month{"maand"};
+    http_server.on("/dagen", HTTP_GET, [](AsyncWebServerRequest* const request) {
+        const char* month{ "maand" };
         if (!request->hasArg(month)) return request->send(400);
         if (!SD.exists(request->arg(month))) return request->send(404);
         // TODO: check that the file is at least plausibly named for a /year/month/day thing
@@ -229,7 +223,7 @@ void setup() {
 
     updateFileHandlers(now);
 
-    http_server.onNotFound([](AsyncWebServerRequest * const request) {
+    http_server.onNotFound([](AsyncWebServerRequest* const request) {
         request->send(404);
     });
 
@@ -247,50 +241,46 @@ void setup() {
     Serial.printf("saving average use every %i minutes\n", SAVE_TIME_MIN);
 }
 
-static uint32_t average{0};
-static uint32_t numberOfSamples{0};
+static uint32_t average{ 0 };
+static uint32_t numberOfSamples{ 0 };
 
 void saveAverage(const tm& timeinfo) {
-    const String message {
+    const String message{
         String(time(NULL)) + " " + String(average / numberOfSamples)
     };
 
     ws_server_events.textAll("electric_saved\n" + message);
 
-    String path{'/' + String(timeinfo.tm_year + 1900)}; /* add the current year to the path */
+    String path{ '/' + String(timeinfo.tm_year + 1900) }; /* add the current year to the path */
 
     File folder = SD.open(path);
     if (!folder && !SD.mkdir(path)) {
-        ESP_LOGE(TAG, "could not create folder %s", path);
+        log_e("could not create folder %s", path);
     }
 
-    path.concat("/" + String(timeinfo.tm_mon + 1));     /* add the current month to the path */
+    path.concat("/" + String(timeinfo.tm_mon + 1)); /* add the current month to the path */
 
     folder = SD.open(path);
     if (!folder && !SD.mkdir(path)) {
-        ESP_LOGE(TAG, "could not create folder %s", path);
+        log_e("could not create folder %s", path);
     }
 
-    path.concat("/" + String(timeinfo.tm_mday) + ".log");   /* add the filename to the path */
+    path.concat("/" + String(timeinfo.tm_mday) + ".log"); /* add the filename to the path */
 
-    static bool booted{true};
+    static bool booted{ true };
 
     if (booted || !SD.exists(path)) {
         const String startHeader{
-            "#" +
-            String(bootTime) + " " +
-            current.low + " " +
-            current.high + " " +
-            current.gas
+            "#" + String(bootTime) + " " + current.low + " " + current.high + " " + current.gas
         };
 
-        ESP_LOGD(TAG, "writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
+        log_d("writing start header '%s' to '%s'", startHeader.c_str(), path.c_str());
 
         appendToFile(path.c_str(), startHeader.c_str());
         booted = false;
     }
 
-    ESP_LOGD(TAG, "%i samples - saving '%s' to file '%s'", numberOfSamples, message.c_str(), path.c_str());
+    log_d("%i samples - saving '%s' to file '%s'", numberOfSamples, message.c_str(), path.c_str());
 
     appendToFile(path.c_str(), message.c_str());
 
@@ -317,16 +307,13 @@ void loop() {
 
     if (USE_WS_BRIDGE) {
         ws_bridge.loop();
-
         static const auto TIMEOUT_MS = 8000;
-
         if (ws_bridge.isConnected() && millis() - lastMessageMs > TIMEOUT_MS) {
-            ESP_LOGW(TAG, "WebSocket bridge has received no data for %.2f seconds - reconnecting...", TIMEOUT_MS / 1000.0);
+            log_w("WebSocket bridge has received no data for %.2f seconds - reconnecting...", TIMEOUT_MS / 1000.0);
             ws_bridge.disconnect();
             lastMessageMs = millis();
         }
-    }
-    else {
+    } else {
         if (smartMeter.available()) {
             static const auto BUFFERSIZE = 1024;
             static char telegram[BUFFERSIZE];
@@ -342,7 +329,7 @@ void loop() {
                 bytes = smartMeter.available();
             }
 
-            ESP_LOGD(TAG, "telegram received - %i bytes:\n%s", size, telegram);
+            log_d("telegram received - %i bytes:\n%s", size, telegram);
             process(telegram, size);
         }
     }
@@ -354,81 +341,82 @@ char currentUseString[200];
 void ws_server_onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len) {
     switch (type) {
 
-        case WS_EVT_CONNECT :
-            ESP_LOGD(TAG, "[%s][%u] connect", server->url(), client->id());
+        case WS_EVT_CONNECT:
+            log_d("[%s][%u] connect", server->url(), client->id());
             if (0 == strcmp(WS_EVENTS_URL, server->url()))
                 client->text(currentUseString);
             break;
 
-        case WS_EVT_DISCONNECT :
-            ESP_LOGD(TAG, "[%s][%u] disconnect", server->url(), client->id());
+        case WS_EVT_DISCONNECT:
+            log_d("[%s][%u] disconnect", server->url(), client->id());
             break;
 
-        case WS_EVT_ERROR :
-            ESP_LOGE(TAG, "[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+        case WS_EVT_ERROR:
+            log_e("[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
             break;
 
-        case WS_EVT_DATA : {
-                AwsFrameInfo * info = (AwsFrameInfo*)arg;
-                // here all data is contained in a single packet - and since we only connect and listen we do not check for multi-packet or multi-frame telegrams
+        case WS_EVT_DATA:
+            {
+                AwsFrameInfo* info = (AwsFrameInfo*)arg;
+                // here all data is contained in a single packet - and since we only connect and listen for packet <= 1024 bytes we do not check for multi-packet or multi-frame telegrams
                 if (info->final && info->index == 0 && info->len == len) {
                     if (info->opcode == WS_TEXT) {
                         data[len] = 0;
-                        ESP_LOGD(TAG, "ws message from client %i: %s", client->id(), reinterpret_cast<char*>(data));
+                        log_d("ws message from client %i: %s", client->id(), reinterpret_cast<char*>(data));
                     }
                 }
             }
             break;
 
-        default : ESP_LOGE(TAG, "unhandled ws event type");
+        default: log_e("unhandled ws event type");
     }
 }
 
 void ws_bridge_onEvents(WStype_t type, uint8_t* payload, size_t length) {
     switch (type) {
 
-        case WStype_CONNECTED :
+        case WStype_CONNECTED:
             Serial.printf("connected to websocket bridge 'ws://%s:%i%s'\n", WS_BRIDGE_HOST, WS_BRIDGE_PORT, WS_BRIDGE_URL);
             lastMessageMs = millis();
             break;
 
-        case WStype_DISCONNECTED :
+        case WStype_DISCONNECTED:
             Serial.println("websocket bridge down - reconnecting");
             connectToWebSocketBridge();
             break;
 
-        case WStype_TEXT :
-            ESP_LOGD(TAG, "payload: %s", payload);
+        case WStype_TEXT:
+            log_d("payload: %s", payload);
             process(reinterpret_cast<char*>(payload), length);
             lastMessageMs = millis();
             break;
 
-        case WStype_ERROR :
-            ESP_LOGE(TAG, "websocket bridge error");
+        case WStype_ERROR:
+            log_e("websocket bridge error");
             break;
 
-        case WStype_PING :
-            ESP_LOGD(TAG, "received ping");
+        case WStype_PING:
+            log_d("received ping");
             break;
 
-        case WStype_PONG :
-            ESP_LOGD(TAG, "received pong");
+        case WStype_PONG:
+            log_d("received pong");
             break;
 
-        default : ESP_LOGE(TAG, "unhandled websocket bridge event");
+        default: log_e("unhandled websocket bridge event");
     }
 }
 
 bool appendToFile(const char* path, const char* message) {
-    ESP_LOGD(TAG, "appending to file: %s", path);
+    log_d("appending to file: %s", path);
 
     File file = SD.open(path, FILE_APPEND);
     if (!file) {
-        ESP_LOGD(TAG, "failed to open %s for appending", path);
+        log_d("failed to open %s for appending", path);
         return false;
     }
     if (!file.println(message)) {
-        ESP_LOGD(TAG, "failed to write %s", path);
+        log_d("failed to write %s", path);
         return false;
     }
 
@@ -438,21 +426,20 @@ bool appendToFile(const char* path, const char* message) {
 
 void process(const char* telegram, const int size) {
 
-    using decodedFields = ParsedData <
-                          /* FixedValue */ energy_delivered_tariff1,
-                          /* FixedValue */ energy_delivered_tariff2,
-                          /* String */ electricity_tariff,
-                          /* FixedValue */ power_delivered,
-                          /* TimestampedFixedValue */ gas_delivered
-                          >;
+    using decodedFields = ParsedData<
+        /* FixedValue */ energy_delivered_tariff1,
+        /* FixedValue */ energy_delivered_tariff2,
+        /* String */ electricity_tariff,
+        /* FixedValue */ power_delivered,
+        /* TimestampedFixedValue */ gas_delivered >;
     decodedFields data;
     const ParseResult<void> res = P1Parser::parse(&data, telegram, size);
     /*
         if (res.err)
-        ESP_LOGE(TAG, "Error decoding telegram\n%s", res.fullError(telegram, telegram + size);
+        log_e("Error decoding telegram\n%s", res.fullError(telegram, telegram + size);
 
         if (!data.all_present())
-        ESP_LOGE(TAG, "Could not decode all fields");
+        log_e("Could not decode all fields");
     */
     if (res.err || !data.all_present())
         return;
@@ -465,13 +452,12 @@ void process(const char* telegram, const int size) {
         uint32_t gasStart;
     } today;
 
-    current = {data.energy_delivered_tariff1.int_val(),
-               data.energy_delivered_tariff2.int_val(),
-               data.gas_delivered.int_val()
-              };
+    current = { data.energy_delivered_tariff1.int_val(),
+                data.energy_delivered_tariff2.int_val(),
+                data.gas_delivered.int_val() };
 
     /* out of range value to make sure the next check updates the first time */
-    static uint8_t currentMonthDay{40};
+    static uint8_t currentMonthDay{ 40 };
 
     static struct tm timeinfo;
     getLocalTime(&timeinfo);
@@ -495,8 +481,7 @@ void process(const char* telegram, const int size) {
              data.energy_delivered_tariff1.int_val() - today.t1Start,
              data.energy_delivered_tariff2.int_val() - today.t2Start,
              data.gas_delivered.int_val() - today.gasStart,
-             (data.electricity_tariff.equals("0001")) ? "laag" : "hoog"
-            );
+             (data.electricity_tariff.equals("0001")) ? "laag" : "hoog");
 
     ws_server_events.textAll(currentUseString);
 
@@ -513,26 +498,26 @@ void process(const char* telegram, const int size) {
 void WiFiEvent(WiFiEvent_t event) {
     switch (event) {
         case SYSTEM_EVENT_STA_START:
-            ESP_LOGD(TAG, "STA Started");
+            log_d("STA Started");
             //WiFi.setHostname( DEFAULT_HOSTNAME_PREFIX.c_str();
             break;
         case SYSTEM_EVENT_STA_CONNECTED:
-            ESP_LOGD(TAG, "STA Connected");
+            log_d("STA Connected");
             //WiFi.enableIpV6();
             break;
         case SYSTEM_EVENT_AP_STA_GOT_IP6:
-            ESP_LOGD(TAG, "STA IPv6: ");
-            ESP_LOGD(TAG, "%s", WiFi.localIPv6().toString());
+            log_d("STA IPv6: ");
+            log_d("%s", WiFi.localIPv6().toString());
             break;
         case SYSTEM_EVENT_STA_GOT_IP:
-            ESP_LOGD(TAG, "STA IPv4: %s", WiFi.localIP());
+            log_d("STA IPv4: %s", WiFi.localIP());
             break;
         case SYSTEM_EVENT_STA_DISCONNECTED:
-            ESP_LOGI(TAG, "STA Disconnected");
+            log_i("STA Disconnected");
             WiFi.begin();
             break;
         case SYSTEM_EVENT_STA_STOP:
-            ESP_LOGI(TAG, "STA Stopped");
+            log_i("STA Stopped");
             break;
         default:
             break;
