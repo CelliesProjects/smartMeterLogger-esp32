@@ -186,9 +186,11 @@ void setup() {
     http_server.on("/maanden", HTTP_GET, [](AsyncWebServerRequest* const request) {
         const char* year{ "jaar" };
         if (!request->hasArg(year)) return request->send(400);
-        if (!SD.exists(request->arg(year))) return request->send(404);
+        char requestStr[request->arg(year).length() + 3];
+        snprintf(requestStr, sizeof(requestStr), "/%s", request->arg(year).c_str());
+        if (!SD.exists(requestStr)) return request->send(404);
         // TODO: check that the folders are at least plausibly named for a /year/month thing
-        File path = SD.open(request->arg(year));
+        File path = SD.open(requestStr);
         if (!path || !path.isDirectory()) return request->send(503);
         File item = path.openNextFile();
         if (!item) return request->send(404);
