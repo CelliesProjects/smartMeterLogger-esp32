@@ -4,7 +4,7 @@
 
 ## About
 
-`smartMeterLogger-esp32` connects to a smart meter (slimme meter) and logs the electricity use per minute to an sdcard. Saved data can be viewed in a html5 compatible browser on your phone/laptop/desktop. You can also compare the current day to a day in the past.
+`smartMeterLogger-esp32` connects to a smart meter (slimme meter) and logs the electricity use every minute to an sdcard. Saved data can be viewed in a html5 compatible browser on your phone/laptop/desktop. You can also compare the current day to a day in the past.
 
 Compiles in the Arduino IDE.
 
