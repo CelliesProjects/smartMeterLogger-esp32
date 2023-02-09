@@ -8,7 +8,7 @@ const char* WIFI_PASSWORD = "xxx";
 #define BAUDRATE (115200)
 #define UART_NR (UART_NUM_2)
 
-constexpr const bool USE_WS_BRIDGE = true; /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
+constexpr const bool USE_WS_BRIDGE = false; /* true = connect to a dsmr websocket bridge - false = connect to a dsmr smartmeter */
 
 /* settings for websocket bridge */
 const char* WS_BRIDGE_HOST = "192.168.0.90"; /* bridge name or ip*/
@@ -26,7 +26,7 @@ const IPAddress SECONDARY_DNS(0, 0, 0, 0);    /* Check in your router */
 
 /* settings for ntp time sync */
 const char* NTP_POOL = "nl.pool.ntp.org";
-const char* TIMEZONE = "CET-1CEST,M3.5.0/2,M10.5.0/3"; /* Central European Time - see https://sites.google.com/a/usapiens.com/opnode/time-zones */
+const char* TIMEZONE = "CET-1CEST,M3.5.0/2,M10.5.0/3"; /* Central European Time - see https://remotemonitoringsystems.ca/time-zone-abbreviations.php */
 
 /* settings for a ssd1306/sh1106 oled screen */
 //#define SH1106_OLED                                      /* uncomment to compile for SH1106 instead of SSD1306 */
