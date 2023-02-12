@@ -103,13 +103,10 @@ a{
   <p class="name">gas:</p><p id="gasUse" class="value"></p>
 </div>
 <script>
-var url = "http://";
-if (window.location.hostname) url += window.location.hostname;
-else url += debugip;
-
-var ws_host = "ws://";
-if (window.location.hostname) ws_host += window.location.hostname + "/events";
-else ws_host += debugip + "/events";
+const http_protocol = window.location.protocol !== 'https:' ? 'http://' : 'https://';
+const http_host = http_protocol + (window.location.hostname ? window.location.hostname : debugip);
+const ws_protocol = window.location.protocol !== 'https:' ? 'ws://' : 'wss://';
+const ws_host = ws_protocol + (window.location.hostname ? window.location.hostname : debugip) + "/events";
 
 function ready(callbackFunction){
   if (document.readyState != 'loading')

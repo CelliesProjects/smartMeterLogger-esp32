@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script>
-const debugip="192.168.0.101";  //change this to the esp32 ip for remote running of this page
+const debugip="192.168.0.90";  //change this to the esp32 ip for remote running of this page
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -268,11 +268,10 @@ select:disabled{
 <div id="currentuse"></div>
 <div id="footerbox"></div>
 <script>
-const http_host = "http://" + (window.location.hostname ? window.location.hostname : debugip);
+const http_protocol = window.location.protocol !== 'https:' ? 'http://' : 'https://';
+const http_host = http_protocol + (window.location.hostname ? window.location.hostname : debugip);
 const ws_protocol = window.location.protocol !== 'https:' ? 'ws://' : 'wss://';
 const ws_host = ws_protocol + (window.location.hostname ? window.location.hostname : debugip) + "/events";
-
-console.log("Protocol:" + window.location.protocol);
 
 var currentRange = 2000; //in Watts
 var lowestUse = 10000000;
