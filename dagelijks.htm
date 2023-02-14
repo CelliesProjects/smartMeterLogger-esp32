@@ -599,7 +599,8 @@ ready(event => {
     }
   });
 
-  document.addEventListener("unload", e=>{ws.close();});
+  //window.addEventListener("unload", ws.close());
+  //window.addEventListener("focus", ws.open());
 })
 
 function drawBackground() {
