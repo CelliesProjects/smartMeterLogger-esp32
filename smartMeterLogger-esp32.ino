@@ -34,12 +34,6 @@ SH1106 oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 SSD1306 oled(OLED_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
 #endif
 
-struct {
-    uint32_t low;
-    uint32_t high;
-    uint32_t gas;
-} current;
-
 time_t bootTime;
 bool oledFound{ false };
 
@@ -245,6 +239,11 @@ void setup() {
 
 static uint32_t average{ 0 };
 static uint32_t numberOfSamples{ 0 };
+struct {
+    uint32_t low;
+    uint32_t high;
+    uint32_t gas;
+} current;
 
 void saveAverage(const tm& timeinfo) {
     const String message{
