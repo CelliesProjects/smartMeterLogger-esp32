@@ -108,10 +108,10 @@ void setup() {
 
     WiFi.begin(WIFI_NETWORK, WIFI_PASSWORD);
     WiFi.setSleep(false);
+    WiFi.setAutoReconnect(true);
 
     while (!WiFi.isConnected())
         delay(10);
-    WiFi.onEvent(WiFiEvent);
     Serial.printf("connected to '%s' as %s\n", WIFI_NETWORK, WiFi.localIP().toString().c_str());
 
     if (oledFound) {
@@ -360,7 +360,7 @@ void ws_server_onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, Aws
         case WS_EVT_DATA:
             {
                 AwsFrameInfo* info = (AwsFrameInfo*)arg;
-                // here all data is contained in a single packet - and since we only connect and listen for packet <= 1024 bytes we do not check for multi-packet or multi-frame telegrams
+                // here all data is contained in a single packet - and since we only listen for packets <= 1024 bytes we do not check for multi-packet or multi-frame telegrams
                 if (info->final && info->index == 0 && info->len == len) {
                     if (info->opcode == WS_TEXT) {
                         data[len] = 0;
@@ -494,34 +494,5 @@ void process(const char* telegram, const int size) {
         oled.setFont(ArialMT_Plain_24);
         oled.drawString(oled.width() >> 1, 18, String(data.power_delivered.int_val()) + "W");
         oled.display();
-    }
-}
-
-void WiFiEvent(WiFiEvent_t event) {
-    switch (event) {
-        case SYSTEM_EVENT_STA_START:
-            log_d("STA Started");
-            //WiFi.setHostname( DEFAULT_HOSTNAME_PREFIX.c_str();
-            break;
-        case SYSTEM_EVENT_STA_CONNECTED:
-            log_d("STA Connected");
-            //WiFi.enableIpV6();
-            break;
-        case SYSTEM_EVENT_AP_STA_GOT_IP6:
-            log_d("STA IPv6: ");
-            log_d("%s", WiFi.localIPv6().toString());
-            break;
-        case SYSTEM_EVENT_STA_GOT_IP:
-            log_d("STA IPv4: %s", WiFi.localIP());
-            break;
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-            log_i("STA Disconnected");
-            WiFi.begin();
-            break;
-        case SYSTEM_EVENT_STA_STOP:
-            log_i("STA Stopped");
-            break;
-        default:
-            break;
     }
 }
