@@ -1,6 +1,7 @@
 # smartMeterLogger-esp32
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/5abe0cc3faa54a05a6acfe6b68e5eac6)](https://app.codacy.com/gh/CelliesProjects/smartMeterLogger-esp32?utm_source=github.com&utm_medium=referral&utm_content=CelliesProjects/smartMeterLogger-esp32&utm_campaign=Badge_Grade)
+# This repository is no longer maintained.  
+A new PlatformIO version can be found [here](https://github.com/CelliesProjects/smartMeterLogger-pio).
 
 ## About
 
